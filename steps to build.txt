@@ -1,0 +1,19 @@
+# https://docs.moodle.org/dev/Setting_up_your_development_environment_for_Moodle_Mobile_2
+nvm install node 11.15.0
+# https://www.sitepoint.com/quick-tip-multiple-versions-node-nvm/
+nvm use 11
+
+sudo apt-get install libsecret-1-dev
+
+npm install 
+# cordova.plugins.diagnostic: Diagnostic plugin - ERROR: ENOENT: no such file or directory, open '/home/mac/StudioProjects/LMSappBuildTrial/config.xml'
+# added 1829 packages from 1022 contributors and audited 1958 packages in 98.592s
+
+npx cordova prepare 
+# Current working directory is not a Cordova-based project.
+# https://stackoverflow.com/questions/21276294/cordova-current-working-directory-is-not-a-cordova-based-project
+mkdir www
+npm install cordova
+# config.xml was missing, so copied over
+
+npx gulp
