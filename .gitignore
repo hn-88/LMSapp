@@ -32,7 +32,7 @@ platforms/
 www/*
 !www/README.md
 !changes*
-!changes*/inside*/@ionic/app-scripts/dist/util/config.js"
+!changes*/inside*/*onic/app-scripts/dist/util/config.js
 
 $RECYCLE.BIN/
 
