@@ -26,8 +26,13 @@ platforms/
 /plugins/
 /plugins/android.json
 /plugins/ios.json
-www/
+
+#https://stackoverflow.com/questions/5533050/gitignore-exclude-folder-but-include-specific-subfolder
+!www/
+www/*
 !www/README.md
+!changes*
+
 $RECYCLE.BIN/
 
 .DS_Store
