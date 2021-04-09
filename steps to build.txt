@@ -14,6 +14,11 @@ npx cordova prepare
 # https://stackoverflow.com/questions/21276294/cordova-current-working-directory-is-not-a-cordova-based-project
 mkdir www
 npm install cordova
-# config.xml was missing, so copied over
+# config.xml was missing, so copied over with git
+# No platforms added to this project. Please use `cordova platform add <platform>`.
+npx ionic cordova platform add android --verbose
+#Source path does not exist: resources/android/icon/drawable-hdpi-smallicon.png
+#Error: Source path does not exist: resources/android/icon/drawable-hdpi-smallicon.png
+# editing gitignore file to add the resources
 
 npx gulp
