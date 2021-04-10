@@ -3,7 +3,7 @@
     <name>SSSVV LMS</name>
     <description>Sri Sathya Sai Vidya Vahini official app for LMS</description>
     <author email="support@srisathyasaividyavahini.org" href="https://www.srisathyasaividyavahini.org">Sri Sathya Sai Vidya Vahini</author>
-    <content src="https://sssvidyavahini.org" />
+    <content src="index.html" />
     <access origin="*" />
     <access launch-external="yes" origin="tel:*" />
     <access launch-external="yes" origin="mailto:*" />

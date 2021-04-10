@@ -2,7 +2,7 @@
 
 2. Change to the build.gradle to force minSdkversion 22
 ext.cdvMinSdkVersion = 22
-to build with android studio.
+to build with android studio. This can also be done in config.xml
 
 
 3. Changing all ~ and ^ package depencies in package.json (except cordova-android itself) to the exact package. Done by replacing
@@ -22,7 +22,11 @@ config.xml
 reduced SplashScreenDelay
 and SplashShowOnlyFirstTime true
 also, very important,
-content src="https://sssvidyavahini.org"
+content src="https://sssvidyavahini.org" would make the app like a simple webview.
+We don't want that, so leave the content src as it is, 
+but change the siteurl in src/config.json
+and onlyallowlistedsites true.
+
 android-minSdkVersion" value="22"
 
 google-services.json - changed the package name
