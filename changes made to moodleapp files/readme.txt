@@ -34,6 +34,7 @@ google-services.json - changed the package name
 and src/config.json version, ensured it is different, but same number of digits.
 
 5. Changing logo and splash screen as per above url and also resources/android/icon-background.png and icon-foreground.png
+and in src dir assets/img
 
  
 
@@ -67,8 +68,60 @@ https://docs.moodle.org/dev/Setting_up_your_development_environment_for_Moodle_M
 
 sudo apt-get install libsecret-1-dev
 
-Then, make the changes above. After that,
+Then, make the changes above. After that, see
+steps to build.txt in root dir
 
+nvm install node 11.15.0
+# https://www.sitepoint.com/quick-tip-multiple-versions-node-nvm/
+nvm use 11
+
+sudo apt-get install libsecret-1-dev
+
+npm install 
+# cordova.plugins.diagnostic: Diagnostic plugin - ERROR: ENOENT: no such file or directory, open '/home/mac/StudioProjects/LMSappBuildTrial/config.xml'
+# added 1829 packages from 1022 contributors and audited 1958 packages in 98.592s
+
+npx cordova prepare 
+# Current working directory is not a Cordova-based project.
+# https://stackoverflow.com/questions/21276294/cordova-current-working-directory-is-not-a-cordova-based-project
+mkdir www
+npm install cordova
+# config.xml was missing, so copied over with git
+# No platforms added to this project. Please use `cordova platform add <platform>`.
+npx ionic cordova platform add android --verbose
+#Source path does not exist: resources/android/icon/drawable-hdpi-smallicon.png
+#Error: Source path does not exist: resources/android/icon/drawable-hdpi-smallicon.png
+# editing gitignore file to add the resources
+npx cordova prepare
+# ignoring the warning about conflict
+
+npx gulp
+
+npm start
+# just to test - waiting till transpile started etc. then Ctrl+C
+# Chrome doesn't open the http://localhost:8100 link as it tries https first - Firefox at least tries.
+
+# https://docs.moodle.org/dev/Setting_up_your_development_environment_for_Moodle_Mobile_2#Compiling_using_AOT
+cp -v "changes made to moodleapp files/inside node_modules dir/@angular/platform-browser-dynamic/esm5/platform-browser-dynamic.js" "node_modules/@angular/platform-browser-dynamic/esm5"
+cp -v "changes made to moodleapp files/inside node_modules dir/@ionic/app-scripts/dist/util/config.js" "node_modules/@ionic/app-scripts/dist/util/config.js"
+# edited gitignore to not ignore this config.js, did git add -f.
+
+npm run ionic:build -- --prod
+# this takes a lot of RAM and a lot of time. 
+# if possible, avoid swapping by closing all apps and clearning memory before doing this.
+# REMEMBER to use nvm use 11 if doing this in a fresh terminal
+#PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND 
+# 3682 mac       20   0 3142252 2.215g  28948 R 131.5 59.6   6:34.48 node
+#   build prod finished in 3128.04 s
+# npx cordova run android
+# Could not find an installed version of Gradle either in Android Studio,
+#or on your system to install the gradle wrapper. Please include gradle 
+#in your path, or install Android Studio
+# So, I just imported the platforms/android directory using the Import Gradle project option in Android Studio 4.1.3, and built from there.
+
+
+Earlier missteps are noted below.
+--------------------------------
 npm install
 #npx cordova prepare gave
 #No platforms added to this project... so
@@ -85,6 +138,7 @@ npx ionic cordova platform add android --verbose
 #npx ionic cordova platform add android --nofetch might be useful at some time
 npx cordova prepare
 #Lots of failed to restore plugin errors.
+# these are probably due to not using nvm use 11
 npx gulp
 npm start
 # just to check if it is running, Ctrl+C to stop
