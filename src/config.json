@@ -76,7 +76,7 @@
     "sitename": "Sri Sathya Sai Vidya Vahini",
     "multisitesdisplay": "",
     "sitefindersettings": {},
-    "onlyallowlistedsites": false,
+    "onlyallowlistedsites": true,
     "skipssoconfirmation": false,
     "forcedefaultlanguage": false,
     "privacypolicy": "https:\/\/sssvidyavahini.org\/app_privacy_policy.html",
