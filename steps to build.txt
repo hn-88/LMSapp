@@ -18,6 +18,8 @@ npx cordova prepare
 npm install cordova
 # this is also important. Without this, the www directory is not populated for the final prod build.
 
+npm i -g cordova-res
+# This is also important - without this, the image resources won't get processed
 # config.xml was missing, so copied over with git
 # No platforms added to this project. Please use `cordova platform add <platform>`.
 npx ionic cordova platform add android --verbose
