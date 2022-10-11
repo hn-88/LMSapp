@@ -46,7 +46,7 @@ jobs:
     script: scripts/aot.sh
   - stage: build
     name: "Build Android"
-    if: env(DEPLOY) IS present AND type != cron AND ((env(DEPLOY) = 1 AND tag IS blank) OR (env(DEPLOY) = 2 AND tag IS present))
+    #if: env(DEPLOY) IS present AND type != cron AND ((env(DEPLOY) = 1 AND tag IS blank) OR (env(DEPLOY) = 2 AND tag IS present))
     dist: trusty
     language: android
     env:
@@ -59,27 +59,3 @@ jobs:
     - npm ci
     - npm install -g gulp
     script: scripts/aot.sh
-  - stage: test
-    name: "End to end tests (mod_forum and mod_messages)"
-    services:
-    - docker
-    if: type = cron
-    script: scripts/test_e2e.sh "@app&&@mod_forum" "@app&&@mod_messages"
-  - stage: test
-    name: "End to end tests (mod_data and mod_survey)"
-    services:
-    - docker
-    if: type = cron
-    script: scripts/test_e2e.sh "@app&&@mod_data" "@app&&@mod_survey"
-  - stage: test
-    name: "End to end tests (mod_comments, mod_course, core_course and mod_courses)"
-    services:
-    - docker
-    if: type = cron
-    script: scripts/test_e2e.sh "@app&&@mod_comments" "@app&&@mod_course" "@app&&@core_course" "@app&&@mod_courses"
-  - stage: test
-    name: "End to end tests (others)"
-    services:
-    - docker
-    if: type = cron
-    script: scripts/test_e2e.sh "@app&&~@mod_forum&&~@mod_messages&&~@mod_comments&&~@mod_data&&~@mod_survey&&~@mod_course&&~@core_course&&~@mod_courses"
