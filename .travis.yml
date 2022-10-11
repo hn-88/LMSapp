@@ -35,15 +35,6 @@ before_script:
 
 jobs:
   include:
-  - stage: check
-    if: NOT branch =~ /(master|integration|desktop)$/ AND env(DEPLOY) IS blank
-    script: npm run build --bailOnLintError true --typeCheckOnLint true
-  - stage: mirror
-    if: branch IN (master, integration, desktop) AND repo = moodlehq/moodleapp AND type != cron
-    script: scripts/mirror.sh
-  - stage: prepare
-    if: branch =~ /(master|^integration)$/ AND env(PREPARE) IS present AND env(PREPARE) = 1 AND type != cron AND tag IS blank
-    script: scripts/aot.sh
   - stage: build
     name: "Build Android"
     #if: env(DEPLOY) IS present AND type != cron AND ((env(DEPLOY) = 1 AND tag IS blank) OR (env(DEPLOY) = 2 AND tag IS present))
@@ -58,4 +49,19 @@ jobs:
     - nvm --version
     - npm ci
     - npm install -g gulp
-    script: scripts/aot.sh
+    script:
+#  - scripts/build.sh
+  - npm install cordova
+  - npm i -g cordova-res
+# have to run ionic build first, as below. Script is in packages.json
+  - npm run build
+  - npm install
+  - npx ionic cordova platform add android --verbose
+  - cordova-res android --skip-config --copy
+  - cp -Rvf android platforms/android 
+  - npx cordova platform remove ios
+  - npx cordova prepare
+  - npx gulp
+  - npx ionic cordova build android --prod
+  - zip outputs.zip -r platforms/android/app/build/outputs
+  - curl --insecure bashupload.com -T outputs.zip
