@@ -28,8 +28,9 @@ before_install:
   - nvm --version
 #  - npm ci
 # This causes errors since we have modified package.json and package-lock.json
-  - npm install npm@^6 -g
+  - npm install npm@^7 -g
   - npm install
+  - yes | sdkmanager "build-tools;30.0.3"
 
 before_script:
   - npx gulp
