@@ -53,7 +53,7 @@ script:
 #  - npm run build:prod
   - npx ionic build --prod
 #  - npm run prod:androidsigned
-  - npx cordova build android --aot
+  - npx cordova build android --prod
   - zip outputs.zip -r platforms/android/app/build/outputs
   - curl --insecure bashupload.com -T outputs.zip
 jobs:
