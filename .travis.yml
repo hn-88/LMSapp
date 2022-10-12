@@ -34,7 +34,7 @@ before_install:
 before_script:
   - npx gulp
 # https://devops.pingidentity.com/how-to/privateRepos/
-  - git clone https://$ourUsername:$ourPrivateToken@github.com/$ourUsername/$ourRepoName.git
+#  - git clone https://$ourUsername:$ourPrivateToken@github.com/$ourUsername/$ourRepoName.git
 
 script:
 #  - scripts/build.sh
@@ -50,13 +50,11 @@ script:
   - npx gulp
 # the following was found from package.json scripts section
 # and is necessary before the cordova build
-  - npm run build:prod
+#  - npm run build:prod
+  - npx ionic build --prod
 #  - npm run prod:androidsigned
   - npx cordova build android --aot
-  - zip outputs.zip -r /home/travis/build/hn-88/moodleappAppveyorTrial/platforms/android/app/build/outputs
-# if app still doesn't work, will add the cp -r "changes made" etc here, and build again.
-#  - curl -T /home/travis/build/hn-88/moodleappAppveyorTrial/platforms/android/app/build/outputs/apk/debug/app-debug.apk --insecure https://oshi.at
-# oshi.at complains that filesize is too big even for 19 MB files
+  - zip outputs.zip -r platforms/android/app/build/outputs
   - curl --insecure bashupload.com -T outputs.zip
 jobs:
   include:
