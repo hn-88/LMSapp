@@ -1,67 +1,96 @@
 os: linux
-dist: bionic
-group: edge
-language: node_js
-node_js: 11
-php: 7.1
-
-android:
-    components:
-    - tools
-    - platform-tools
-    - build-tools-29.0.3
-    - android-28
-    - extra-google-google_play_services
-    - extra-google-m2repository
-    - extra-android-m2repository
+dist: trusty
+node_js: 12
 
 git:
   depth: 3
+  
+branches:
+  only:
+    - hn
 
 before_cache:
   - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
   - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
 
 cache:
+  npm: true
   directories:
     - $HOME/.npm
     - $HOME/.gradle/caches/
     - $HOME/.gradle/wrapper/
     - $HOME/.android/build-cache
 
-before_script:
-  - npm install npm@latest -g
-  - gulp
+before_install:
+  - nvm install 12
+  - node --version
+  - npm --version
+  - nvm --version
+#  - npm ci
+# This causes errors since we have modified package.json and package-lock.json
+  - npm install npm@^6 -g
+  - npm install
 
+before_script:
+  - npx gulp
+# https://devops.pingidentity.com/how-to/privateRepos/
+  - git clone https://$ourUsername:$ourPrivateToken@github.com/$ourUsername/$ourRepoName.git
+
+script:
+#  - scripts/build.sh
+# from https://github.com/hn-88/moodleappAppveyorTrial/blob/hn/.travis.yml
+  - npm install cordova
+  - npm i -g cordova-res
+  - npm install
+  - npx ionic cordova platform add android --verbose
+  - cordova-res android --skip-config --copy
+  - cp -Rv android platforms/android 
+  - npx cordova platform remove ios
+  - npx cordova prepare
+  - npx gulp
+# the following was found from package.json scripts section
+# and is necessary before the cordova build
+  - npm run build:prod
+#  - npm run prod:androidsigned
+  - npx cordova build android --aot
+  - zip outputs.zip -r /home/travis/build/hn-88/moodleappAppveyorTrial/platforms/android/app/build/outputs
+# if app still doesn't work, will add the cp -r "changes made" etc here, and build again.
+#  - curl -T /home/travis/build/hn-88/moodleappAppveyorTrial/platforms/android/app/build/outputs/apk/debug/app-debug.apk --insecure https://oshi.at
+# oshi.at complains that filesize is too big even for 19 MB files
+  - curl --insecure bashupload.com -T outputs.zip
 jobs:
   include:
   - stage: build
     name: "Build Android"
-    #if: env(DEPLOY) IS present AND type != cron AND ((env(DEPLOY) = 1 AND tag IS blank) OR (env(DEPLOY) = 2 AND tag IS present))
-    dist: trusty
+#   if: env(DEPLOY) = 1 OR (env(DEPLOY) = 2 AND tag IS NOT blank)
     language: android
-    env:
-    - BUILD_PLATFORM='android'
-    before_install:
-    - nvm install 11
-    - node --version
-    - npm --version
-    - nvm --version
-    - npm ci
-    - npm install -g gulp
-    script:
-#  - scripts/build.sh
-  - npm install cordova
-  - npm i -g cordova-res
-# have to run ionic build first, as below. Script is in packages.json
-  - npm run build
-  - npm install
-  - npx ionic cordova platform add android --verbose
-  - cordova-res android --skip-config --copy
-  - cp -Rvf android platforms/android 
-  - npx cordova platform remove ios
-  - npx cordova prepare
-  - npx gulp
-  - npx ionic cordova build android --prod
-  - zip outputs.zip -r platforms/android/app/build/outputs
-  - curl --insecure bashupload.com -T outputs.zip
+    android:
+      components:
+      - tools
+      - platform-tools
+# from https://developer.android.com/studio/releases/platform-tools
+# seeing if latest version is available - Aug 2022
+# does not work, https://github.com/hn-88/moodleappAppveyorTrial/issues/1
+      - build-tools-29.0.3
+      - android-29
+      - extra-google-google_play_services
+      - extra-google-m2repository
+      - extra-android-m2repository
+    addons:
+      apt:
+        packages:
+        - libsecret-1-dev
+
+after_success:
+deploy:
+  provider: releases
+  token: $mytokenname
+  file_glob: true
+  file: outputs.zip
+  skip_cleanup: true
+  draft: true
+  edge: true
+  on:
+    branch: hn
+
+
