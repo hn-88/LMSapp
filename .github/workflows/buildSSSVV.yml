@@ -32,11 +32,11 @@ jobs:
         npx ionic cordova build android --prod
         zip outputs.zip -r platforms/android/app/build/outputs
         curl --insecure bashupload.com -T outputs.zip
-    - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: apk-built-on-actions
-          path: |
-            platforms/android
-            platforms/android/app/build/outputs
+#    - name: Archive production artifacts
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: apk-built-on-actions
+#          path: |
+#            platforms/android
+#            platforms/android/app/build/outputs
     
