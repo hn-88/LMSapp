@@ -113,8 +113,15 @@ function add_langs_to_config($langs, $config) {
         $config['languages'] = json_decode( json_encode( $config['languages'] ), true );
         ksort($config['languages']);
         $config['languages'] = json_decode( json_encode( $config['languages'] ), false );
-        file_put_contents(CONFIG, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        save_json(CONFIG, $config);
     }
+}
+
+/**
+ * Save json data.
+ */
+function save_json($path, $content) {
+    file_put_contents($path, str_replace('\/', '/', json_encode($content, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))."\n");
 }
 
 function get_langfolder($lang) {
@@ -246,9 +253,11 @@ function build_lang($lang, $keys) {
         }
 
         if ($value->file != 'local_moodlemobileapp') {
+            $text = str_replace('$a->@', '$a.', $text);
             $text = str_replace('$a->', '$a.', $text);
             $text = str_replace('{$a', '{{$a', $text);
             $text = str_replace('}', '}}', $text);
+            $text = preg_replace('/@@.+?@@(<br>)?\\s*/', '', $text);
             // Prevent double.
             $text = str_replace(array('{{{', '}}}'), array('{{', '}}'), $text);
         } else {
@@ -270,7 +279,7 @@ function build_lang($lang, $keys) {
 
     // Sort and save.
     ksort($translations);
-    file_put_contents(ASSETSPATH.$lang.'.json', str_replace('\/', '/', json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)));
+    save_json(ASSETSPATH.$lang.'.json', $translations);
 
     $success = count($translations);
     $percentage = floor($success/$total * 100);
@@ -358,16 +367,14 @@ function detect_lang($lang, $keys) {
     return false;
 }
 
-function save_key($key, $value, $path) {
-    $filePath = $path . '/en.json';
-
+function save_key($key, $value, $filePath) {
     $file = file_get_contents($filePath);
     $file = (array) json_decode($file);
     $value = html_entity_decode($value);
     if (!isset($file[$key]) || $file[$key] != $value) {
         $file[$key] = $value;
         ksort($file);
-        file_put_contents($filePath, str_replace('\/', '/', json_encode($file, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)));
+        save_json($filePath, $file);
     }
 }
 
@@ -387,27 +394,31 @@ function override_component_lang_files($keys, $translations) {
         }
         switch($type) {
             case 'core':
-            case 'addon':
                 switch($component) {
                     case 'moodle':
-                        $path .= 'lang';
+                        $path .= 'core/lang.json';
                         break;
                     default:
-                        $path .= $type.'/'.str_replace('_', '/', $component).'/lang';
+                        $path .= 'core/features/'.str_replace('_', '/', $component).'/lang.json';
                         break;
                 }
                 break;
+            case 'addon':
+                $path .= 'addons/'.str_replace('_', '/', $component).'/lang.json';
+                break;
             case 'assets':
-                $path .= $type.'/'.$component;
+                $path .= $type.'/'.$component.'.json';
                 break;
             default:
-                $path .= $type.'/lang';
+                $path .= $type.'/lang.json';
                 break;
 
         }
 
-        if (is_file($path.'/en.json')) {
+        if (is_file($path)) {
             save_key($plainid, $value, $path);
+        } else {
+            echo "Cannot override: $path not found.\n";
         }
     }
 }
