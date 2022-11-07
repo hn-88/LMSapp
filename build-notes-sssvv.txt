@@ -1,0 +1,21 @@
+Build notes:
+------------
+
+* This is based on moodleapp 4.0.2
+
+* Customizations are put in https://github.com/hn-88/customizedMoodleApp4changes
+Files which need changes are:
+config.xml (for version, app name etc)
+google-services.json (for firebase project id etc)
+moodle.config.json (for version, app name etc)
+src/assets/icon/icon.png
+src/assets/icon/favicon.png
+src/assets/img/login_logo.png
+src/assets/img/top_logo.png
+resources/icon.png
+resources/splash.png
+resources/android/icon/(lots of files, but these would probably be re-created by cordova-res)
+resources/android/splash/(lots of files, but these would probably be re-created by cordova-res)
+resources/android/xml/network_security_config.xml (for cleartextTrafficPermitted="true", not sure if this is needed now.)
+
+* Local build works OK as per https://hnsws.blogspot.com/2022/09/modify-and-build-moodle-app-version-4.html
