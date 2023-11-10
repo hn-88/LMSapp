@@ -28,20 +28,20 @@ import { FormControl } from '@angular/forms';
 import { IonTextarea, IonContent, IonSlides } from '@ionic/angular';
 import { Subscription } from 'rxjs';
 
-import { CoreApp } from '@services/app';
 import { CoreSites } from '@services/sites';
 import { CoreFilepool } from '@services/filepool';
 import { CoreDomUtils } from '@services/utils/dom';
 import { CoreUrlUtils } from '@services/utils/url';
 import { CoreUtils } from '@services/utils/utils';
-import { Platform, Translate } from '@singletons';
+import { Translate } from '@singletons';
 import { CoreEventFormActionData, CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreEditorOffline } from '../../services/editor-offline';
-import { CoreComponentsRegistry } from '@singletons/components-registry';
+import { CoreDirectivesRegistry } from '@singletons/directives-registry';
 import { CoreLoadingComponent } from '@components/loading/loading';
 import { CoreScreen } from '@services/screen';
 import { CoreCancellablePromise } from '@classes/cancellable-promise';
 import { CoreDom } from '@singletons/dom';
+import { CorePlatform } from '@services/platform';
 
 /**
  * Component to display a rich text editor if enabled.
@@ -59,9 +59,9 @@ import { CoreDom } from '@singletons/dom';
 export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Based on: https://github.com/judgewest2000/Ionic3RichText/
-    // @todo: Anchor button, fullscreen...
-    // @todo: Textarea height is not being updated when editor is resized. Height is calculated if any css is changed.
-    // @todo: Implement ControlValueAccessor https://angular.io/api/forms/ControlValueAccessor.
+    // @todo Anchor button, fullscreen...
+    // @todo Textarea height is not being updated when editor is resized. Height is calculated if any css is changed.
+    // @todo Implement ControlValueAccessor https://angular.io/api/forms/ControlValueAccessor.
 
     @Input() placeholder = ''; // Placeholder to set in textarea.
     @Input() control?: FormControl; // Form control.
@@ -108,6 +108,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
     protected resizeListener?: CoreEventObserver;
     protected domPromise?: CoreCancellablePromise<void>;
     protected buttonsDomPromise?: CoreCancellablePromise<void>;
+    protected shortcutCommands?: Record<string, EditorCommand>;
 
     rteEnabled = false;
     isPhone = false;
@@ -155,7 +156,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
         this.canScanQR = CoreUtils.canScanQR();
         this.isPhone = CoreScreen.isMobile;
         this.toolbarHidden = this.isPhone;
-        this.direction = Platform.isRTL ? 'rtl' : 'ltr';
+        this.direction = CorePlatform.isRTL ? 'rtl' : 'ltr';
     }
 
     /**
@@ -171,11 +172,6 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
         this.setContent(this.control?.value);
         this.originalContent = this.control?.value;
         this.lastDraft = this.control?.value;
-        this.editorElement.onchange = this.onChange.bind(this);
-        this.editorElement.onkeyup = this.onChange.bind(this);
-        this.editorElement.onpaste = this.onChange.bind(this);
-        this.editorElement.oninput = this.onChange.bind(this);
-        this.editorElement.onkeydown = this.moveCursor.bind(this);
 
         // Use paragraph on enter.
         document.execCommand('DefaultParagraphSeparator', false, 'p');
@@ -258,7 +254,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
             this.windowResized();
         }, 50);
 
-        document.addEventListener('selectionchange', this.selectionChangeFunction = this.updateToolbarStyles.bind(this));
+        document.addEventListener('selectionchange', this.selectionChangeFunction = () => this.updateToolbarStyles());
 
         this.keyboardObserver = CoreEvents.on(CoreEvents.KEYBOARD_CHANGE, () => {
             // Opening or closing the keyboard also calls the resize function, but sometimes the resize is called too soon.
@@ -269,9 +265,29 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
         // Change the side when the language changes.
         this.languageChangedSubscription = Translate.onLangChange.subscribe(() => {
             setTimeout(() => {
-                this.direction = Platform.isRTL ? 'rtl' : 'ltr';
+                this.direction = CorePlatform.isRTL ? 'rtl' : 'ltr';
             });
         });
+    }
+
+    /**
+     * Handle keydown events in the editor.
+     *
+     * @param event Event
+     */
+    onKeyDown(event: KeyboardEvent): void {
+        this.onChange();
+
+        const shortcutId = this.getShortcutId(event);
+        const commands = this.getShortcutCommands();
+        const command = commands[shortcutId];
+
+        if (!command) {
+            return;
+        }
+
+        this.stopBubble(event);
+        this.executeCommand(command);
     }
 
     /**
@@ -292,7 +308,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
     /**
      * Wait until all <core-loading> children inside the page.
      *
-     * @return Promise resolved when loadings are done.
+     * @returns Promise resolved when loadings are done.
      */
     protected async waitLoadingsDone(): Promise<void> {
         this.domPromise = CoreDom.waitToBeInDOM(this.element);
@@ -304,13 +320,13 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
             return;
         }
 
-        await CoreComponentsRegistry.waitComponentsReady(page, 'core-loading', CoreLoadingComponent);
+        await CoreDirectivesRegistry.waitDirectivesReady(page, 'core-loading', CoreLoadingComponent);
     }
 
     /**
      * Get the height of the space in blank at the end of the page.
      *
-     * @return Blank height in px. Will be negative if no blank space.
+     * @returns Blank height in px. Will be negative if no blank space.
      */
     protected async getBlankHeightInContent(): Promise<number> {
         await CoreUtils.nextTicks(5); // Ensure content is completely loaded in the DOM.
@@ -375,64 +391,6 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
     }
 
     /**
-     * On key down function to move the cursor.
-     * https://stackoverflow.com/questions/6249095/how-to-set-caretcursor-position-in-contenteditable-element-div
-     *
-     * @param event The event.
-     */
-    moveCursor(event: KeyboardEvent): void {
-        if (!this.rteEnabled || !this.editorElement) {
-            return;
-        }
-
-        if (event.key != 'ArrowLeft' && event.key != 'ArrowRight') {
-            return;
-        }
-
-        this.stopBubble(event);
-
-        const move = event.key == 'ArrowLeft' ? -1 : +1;
-        const cursor = this.getCurrentCursorPosition(this.editorElement);
-
-        this.setCurrentCursorPosition(this.editorElement, cursor + move);
-    }
-
-    /**
-     * Returns the number of chars from the beggining where is placed the cursor.
-     *
-     * @param parent Parent where to get the position from.
-     * @return Position in chars.
-     */
-    protected getCurrentCursorPosition(parent: Node): number {
-        const selection = window.getSelection();
-
-        let charCount = -1;
-
-        if (selection?.focusNode && parent.contains(selection.focusNode)) {
-            let node: Node | null = selection.focusNode;
-            charCount = selection.focusOffset;
-
-            while (node) {
-                if (node.isSameNode(parent)) {
-                    break;
-                }
-
-                if (node.previousSibling) {
-                    node = node.previousSibling;
-                    charCount += (node.textContent || '').length;
-                } else {
-                    node = node.parentNode;
-                    if (node === null) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        return charCount;
-    }
-
-    /**
      * Set the caret position on the character number.
      *
      * @param parent Parent where to set the position.
@@ -446,7 +404,8 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
          * @param node Node where to start.
          * @param range Previous calculated range.
          * @param chars Object with counting of characters (input-output param).
-         * @return Selection range.
+         * @param chars.count Count of characters.
+         * @returns Selection range.
          */
         const setRange = (node: Node, range: Range, chars: { count: number }): Range => {
             if (chars.count === 0) {
@@ -463,7 +422,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
                     }
                 } else if ((node.textContent || '').length < chars.count) {
                     // Jump this node.
-                    // @todo: empty nodes will be omitted.
+                    // @todo empty nodes will be omitted.
                     chars.count -= (node.textContent || '').length;
                 } else {
                     // The cursor will be placed in this element.
@@ -591,6 +550,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
      * Check if text is empty.
      *
      * @param value text
+     * @returns If value is null only a white space.
      */
     protected isNullOrWhiteSpace(value: string | null): boolean {
         if (value == null || value === undefined) {
@@ -640,7 +600,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
     }
 
     /**
-     * Execute an action over the selected text.
+     * Execute an action over the selected text when a button is activated.
      *  API docs: https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand
      *
      * @param event Event data
@@ -659,6 +619,18 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
             return;
         }
 
+        this.executeCommand({ name: command, parameters });
+    }
+
+    /**
+     * Execute an action over the selected text.
+     *  API docs: https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand
+     *
+     * @param command Editor command.
+     * @param command.name Command name.
+     * @param command.parameters Command parameters.
+     */
+    protected executeCommand({ name: command, parameters }: EditorCommand): void {
         if (parameters == 'block') {
             document.execCommand('formatBlock', false, '<' + command + '>');
 
@@ -753,7 +725,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
      * @returns Wether space or enter have been pressed.
      */
     protected isValidKeyboardKey(event: KeyboardEvent): boolean {
-        return event.key == ' ' || event.key == 'Enter';
+        return event.key === ' ' || event.key === 'Enter';
     }
 
     /**
@@ -797,7 +769,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
         const selection = window.getSelection()?.toString();
 
         // When RTE is focused with a whole paragraph in desktop the stopBubble will not fire click.
-        if (CoreApp.isMobile() || !this.rteEnabled || document.activeElement != this.editorElement || selection == '') {
+        if (CorePlatform.isMobile() || !this.rteEnabled || document.activeElement != this.editorElement || selection == '') {
             this.stopBubble(event);
         }
     }
@@ -918,7 +890,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
     /**
      * Check if should auto save drafts.
      *
-     * @return {boolean} Whether it should auto save drafts.
+     * @returns {boolean} Whether it should auto save drafts.
      */
     protected shouldAutoSaveDrafts(): boolean {
         return !!CoreSites.getCurrentSite() &&
@@ -931,7 +903,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
     /**
      * Restore a draft if there is any.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async restoreDraft(): Promise<void> {
         try {
@@ -973,7 +945,7 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
                     this.showMessage('core.editor.textrecovered', this.RESTORE_MESSAGE_CLEAR_TIME);
                 }
             }
-        } catch (error) {
+        } catch {
             // Ignore errors, shouldn't happen.
         }
     }
@@ -1057,9 +1029,13 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
      * Scan a QR code and put its text in the editor.
      *
      * @param event Event data
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async scanQR(event: Event): Promise<void> {
+        if (event.type == 'keyup' && !this.isValidKeyboardKey(<KeyboardEvent>event)) {
+            return;
+        }
+
         this.stopBubble(event);
 
         // Scan for a QR code.
@@ -1116,4 +1092,121 @@ export class CoreEditorRichTextEditorComponent implements OnInit, AfterViewInit,
         this.buttonsDomPromise?.cancel();
     }
 
+    /**
+     * Get commands triggered by keyboard shortcuts.
+     *
+     * @returns Commands dictionary indexed by their corresponding keyboard shortcut id.
+     */
+    getShortcutCommands(): Record<string, EditorCommand> {
+        if (!this.shortcutCommands) {
+            const isIOS = CorePlatform.isIOS();
+            const metaKey = isIOS ? 'metaKey' : 'ctrlKey';
+            const shiftKey = isIOS ? 'ctrlKey' : 'shiftKey';
+
+            // Same shortcuts as TinyMCE:
+            // @see https://www.tiny.cloud/docs/advanced/keyboard-shortcuts/
+            const shortcuts: { code: string; modifiers: (keyof KeyboardShortcut)[]; command: EditorCommand }[] = [
+                {
+                    code: 'KeyB',
+                    modifiers: [metaKey],
+                    command: {
+                        name: 'bold',
+                        parameters: 'strong',
+                    },
+                },
+                {
+                    code: 'KeyI',
+                    modifiers: [metaKey],
+                    command: {
+                        name: 'italic',
+                        parameters: 'em',
+                    },
+                },
+                {
+                    code: 'KeyU',
+                    modifiers: [metaKey],
+                    command: {
+                        name: 'underline',
+                        parameters: 'u',
+                    },
+                },
+                {
+                    code: 'Digit3',
+                    modifiers: ['altKey', shiftKey],
+                    command: {
+                        name: 'h3',
+                        parameters: 'block',
+                    },
+                },
+                {
+                    code: 'Digit4',
+                    modifiers: ['altKey', shiftKey],
+                    command: {
+                        name: 'h4',
+                        parameters: 'block',
+                    },
+                },
+                {
+                    code: 'Digit5',
+                    modifiers: ['altKey', shiftKey],
+                    command: {
+                        name: 'h5',
+                        parameters: 'block',
+                    },
+                },
+                {
+                    code: 'Digit7',
+                    modifiers: ['altKey', shiftKey],
+                    command: {
+                        name: 'p',
+                        parameters: 'block',
+                    },
+                },
+            ];
+
+            this.shortcutCommands = shortcuts.reduce((shortcuts, { code, modifiers, command }) => {
+                const id = this.getShortcutId({
+                    code: code,
+                    altKey: modifiers.includes('altKey'),
+                    metaKey: modifiers.includes('metaKey'),
+                    shiftKey: modifiers.includes('shiftKey'),
+                    ctrlKey: modifiers.includes('ctrlKey'),
+                });
+
+                shortcuts[id] = command;
+
+                return shortcuts;
+            }, {} as Record<string, EditorCommand>);
+        }
+
+        return this.shortcutCommands;
+    }
+
+    /**
+     * Get a unique identifier for a given keyboard shortcut.
+     *
+     * @param shortcut Shortcut.
+     * @returns Identifier.
+     */
+    protected getShortcutId(shortcut: KeyboardShortcut): string {
+        return (shortcut.altKey ? '1' : '0')
+            + (shortcut.metaKey ? '1' : '0')
+            + (shortcut.shiftKey ? '1' : '0')
+            + (shortcut.ctrlKey ? '1' : '0')
+            + shortcut.code;
+    }
+
+}
+
+/**
+ * Combination
+ */
+type KeyboardShortcut = Pick<KeyboardEvent, 'code' | 'altKey' | 'metaKey' | 'ctrlKey' | 'shiftKey'>;
+
+/**
+ * Editor command.
+ */
+interface EditorCommand {
+    name: string;
+    parameters?: string;
 }

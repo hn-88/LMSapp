@@ -18,7 +18,6 @@ import { CoreError } from '@classes/errors/error';
 import { CoreCourseModuleMainResourceComponent } from '@features/course/classes/main-resource-component';
 import { CoreCourseContentsPage } from '@features/course/pages/contents/contents';
 import { CoreCourse } from '@features/course/services/course';
-import { CoreSites } from '@services/sites';
 import { CoreMimetypeUtils } from '@services/utils/mimetype';
 import { CoreTextUtils } from '@services/utils/text';
 import { AddonModUrl, AddonModUrlDisplayOptions, AddonModUrlProvider, AddonModUrlUrl } from '../../services/url';
@@ -35,6 +34,7 @@ import { AddonModUrlHelper } from '../../services/url-helper';
 export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceComponent implements OnInit {
 
     component = AddonModUrlProvider.COMPONENT;
+    pluginName = 'url';
 
     url?: string;
     name?: string;
@@ -54,7 +54,7 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
     }
 
     /**
-     * Component being initialized.
+     * @inheritdoc
      */
     async ngOnInit(): Promise<void> {
         super.ngOnInit();
@@ -65,7 +65,7 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @returns Resolved when done.
      */
     protected async invalidateContent(): Promise<void> {
         await AddonModUrl.invalidateContent(this.module.id, this.courseId);
@@ -75,7 +75,7 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
      * Download url contents.
      *
      * @param refresh Whether we're refreshing data.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async fetchContent(refresh = false): Promise<void> {
         try {
@@ -109,8 +109,7 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
 
         } catch {
             // Fallback in case is not prefetched.
-            const mod =
-                await CoreCourse.getModule(this.module.id, this.courseId, undefined, false, false, undefined, 'url');
+            const mod = await CoreCourse.getModule(this.module.id, this.courseId, undefined, false, false, undefined, 'url');
 
             this.name = mod.name;
             this.description = mod.description;
@@ -129,7 +128,7 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
      * Calculate the display options to determine how the URL should be rendered.
      *
      * @param url Object with the URL data.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async calculateDisplayOptions(url: AddonModUrlUrl): Promise<void> {
         const displayType = AddonModUrl.getFinalDisplayType(url);
@@ -146,31 +145,23 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
             this.isVideo = CoreMimetypeUtils.isExtensionInGroup(extension, ['web_video']);
             this.isOther = !this.isImage && !this.isAudio && !this.isVideo;
         }
-
-        if (this.shouldIframe || (this.shouldEmbed && !this.isImage && !this.isAudio && !this.isVideo)) {
-            // Will be displayed in an iframe. Check if we need to auto-login.
-            const currentSite = CoreSites.getCurrentSite();
-
-            if (currentSite?.containsUrl(this.url)) {
-                // Format the URL to add auto-login.
-                this.url = await currentSite.getAutoLoginUrl(this.url!, false);
-            }
-        }
     }
 
     /**
      * Log view into the site and checks module completion.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async logView(): Promise<void> {
         try {
-            await AddonModUrl.logView(this.module.instance, this.module.name);
+            await AddonModUrl.logView(this.module.instance);
 
             this.checkCompletion();
         } catch {
             // Ignore errors.
         }
+
+        this.analyticsLogEvent('mod_url_view_url');
     }
 
     /**
@@ -189,7 +180,11 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
      */
     go(): void {
         this.logView();
-        AddonModUrlHelper.open(this.url!);
+        if (!this.url) {
+            return;
+        }
+
+        AddonModUrlHelper.open(this.url);
     }
 
 }

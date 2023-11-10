@@ -14,12 +14,14 @@
 
 import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChange } from '@angular/core';
 
-import { CoreApp } from '@services/app';
 import { CoreSites } from '@services/sites';
 import { CoreUtils } from '@services/utils/utils';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
-import { CoreUserProvider, CoreUserBasicData } from '@features/user/services/user';
+import { USER_PROFILE_PICTURE_UPDATED, CoreUserBasicData } from '@features/user/services/user';
 import { CoreNavigator } from '@services/navigator';
+import { CoreNetwork } from '@services/network';
+import { CoreUserHelper } from '@features/user/services/user-helper';
+import { CoreUrlUtils } from '@services/utils/url';
 
 /**
  * Component to display a "user avatar".
@@ -41,11 +43,13 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
     @Input() userId?: number; // If provided or found it will be used to link the image to the profile.
     @Input() courseId?: number;
     @Input() checkOnline = false; // If want to check and show online status.
+    @Input() siteId?: string;
 
     avatarUrl?: string;
+    initials = '';
 
     // Variable to check if we consider this user online or not.
-    // @TODO: Use setting when available (see MDL-63972) so we can use site setting.
+    // @todo Use setting when available (see MDL-63972) so we can use site setting.
     protected timetoshowusers = 300000; // Miliseconds default.
     protected currentUserId: number;
     protected pictureObserver: CoreEventObserver;
@@ -54,9 +58,9 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
         this.currentUserId = CoreSites.getCurrentSiteUserId();
 
         this.pictureObserver = CoreEvents.on(
-            CoreUserProvider.PROFILE_PICTURE_UPDATED,
+            USER_PROFILE_PICTURE_UPDATED,
             (data) => {
-                if (data.userId == this.userId) {
+                if (data.userId === this.userId) {
                     this.avatarUrl = data.picture;
                 }
             },
@@ -65,14 +69,16 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     /**
-     * Component being initialized.
+     * @inheritdoc
      */
     ngOnInit(): void {
+        this.siteId = this.siteId || CoreSites.getCurrentSiteId();
+
         this.setFields();
     }
 
     /**
-     * Listen to changes.
+     * @inheritdoc
      */
     ngOnChanges(changes: { [name: string]: SimpleChange }): void {
         // If something change, update the fields.
@@ -82,17 +88,32 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     /**
+     * Avatar image loading error handler.
+     */
+    loadImageError(): void {
+        this.avatarUrl = undefined;
+    }
+
+    /**
      * Set fields from user.
      */
     protected setFields(): void {
         const profileUrl = this.profileUrl || (this.user && (this.user.profileimageurl || this.user.userprofileimageurl ||
             this.user.userpictureurl || this.user.profileimageurlsmall || (this.user.urls && this.user.urls.profileimage)));
 
-        if (typeof profileUrl == 'string') {
+        if (typeof profileUrl === 'string') {
             this.avatarUrl = profileUrl;
         }
 
         this.fullname = this.fullname || (this.user && (this.user.fullname || this.user.userfullname));
+
+        if (this.user) {
+            this.initials = CoreUserHelper.getUserInitials(this.user);
+        }
+
+        if (this.initials && this.avatarUrl && CoreUrlUtils.isThemeImageUrl(this.avatarUrl)) {
+            this.avatarUrl = undefined;
+        }
 
         this.userId = this.userId || (this.user && (this.user.userid || this.user.id));
         this.courseId = this.courseId || (this.user && this.user.courseid);
@@ -101,7 +122,7 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
     /**
      * Helper function for checking the time meets the 'online' condition.
      *
-     * @return boolean
+     * @returns boolean
      */
     isOnline(): boolean {
         if (!this.user) {
@@ -114,12 +135,12 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
 
         if (this.user.lastaccess) {
             // If the time has passed, don't show the online status.
-            const time = new Date().getTime() - this.timetoshowusers;
+            const time = Date.now() - this.timetoshowusers;
 
             return this.user.lastaccess * 1000 >= time;
         } else {
             // You have to have Internet access first.
-            return !!this.user.isonline && CoreApp.isOnline();
+            return !!this.user.isonline && CoreNetwork.isOnline();
         }
     }
 
@@ -145,7 +166,7 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     /**
-     * Component destroyed.
+     * @inheritdoc
      */
     ngOnDestroy(): void {
         this.pictureObserver.off();
@@ -156,7 +177,7 @@ export class CoreUserAvatarComponent implements OnInit, OnChanges, OnDestroy {
 /**
  * Type with all possible formats of user.
  */
-type CoreUserWithAvatar = CoreUserBasicData & {
+export type CoreUserWithAvatar = CoreUserBasicData & {
     userpictureurl?: string;
     userprofileimageurl?: string;
     profileimageurlsmall?: string;

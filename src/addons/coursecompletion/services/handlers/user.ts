@@ -57,7 +57,7 @@ export class AddonCourseCompletionUserHandlerService implements CoreUserProfileH
      * @inheritdoc
      */
     async isEnabledForUser(user: CoreUserProfile, context: CoreUserDelegateContext,  contextId: number): Promise<boolean> {
-        return await AddonCourseCompletion.isPluginViewEnabledForUser(contextId, user.id);
+        return AddonCourseCompletion.isPluginViewEnabledForUser(contextId, user.id);
     }
 
     /**
@@ -65,7 +65,7 @@ export class AddonCourseCompletionUserHandlerService implements CoreUserProfileH
      */
     getDisplayData(): CoreUserProfileHandlerData {
         return {
-            icon: 'fas-tasks',
+            icon: 'fas-list-check',
             title: 'addon.coursecompletion.coursecompletion',
             class: 'addon-coursecompletion-handler',
             action: (event, user, context, contextId): void => {

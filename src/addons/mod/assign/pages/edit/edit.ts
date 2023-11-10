@@ -20,7 +20,7 @@ import { CanLeave } from '@guards/can-leave';
 import { CoreNavigator } from '@services/navigator';
 import { CoreSites, CoreSitesReadingStrategy } from '@services/sites';
 import { CoreSync } from '@services/sync';
-import { CoreDomUtils } from '@services/utils/dom';
+import { CoreDomUtils, ToastDuration } from '@services/utils/dom';
 import { CoreFormFields, CoreForms } from '@singletons/form';
 import { Translate } from '@singletons';
 import { CoreEvents } from '@singletons/events';
@@ -39,6 +39,7 @@ import { AddonModAssignOffline } from '../../services/assign-offline';
 import { AddonModAssignSync } from '../../services/assign-sync';
 import { CoreUtils } from '@services/utils/utils';
 import { CoreWSExternalFile } from '@services/ws';
+import { CoreAnalytics, CoreAnalyticsEventType } from '@services/analytics';
 
 /**
  * Page that allows adding or editing an assigment submission.
@@ -84,7 +85,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     }
 
     /**
-     * Component being initialized.
+     * @inheritdoc
      */
     ngOnInit(): void {
         try {
@@ -107,7 +108,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Check if we can leave the page or not.
      *
-     * @return Resolved if we can leave it, rejected if not.
+     * @returns Resolved if we can leave it, rejected if not.
      */
     async canLeave(): Promise<boolean> {
         if (this.forceLeave) {
@@ -131,7 +132,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Fetch assignment data.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async fetchAssignment(): Promise<void> {
         const currentUserId = CoreSites.getCurrentSiteUserId();
@@ -226,6 +227,17 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
                 // No offline data found.
                 this.hasOffline = false;
             }
+
+            CoreAnalytics.logEvent({
+                type: CoreAnalyticsEventType.VIEW_ITEM,
+                ws: 'mod_assign_save_submission',
+                name: Translate.instant('addon.mod_assign.subpagetitle', {
+                    contextname: this.assign.name,
+                    subpage: Translate.instant('addon.mod_assign.editsubmission'),
+                }),
+                data: { id: this.assign.id, category: 'assign' },
+                url: `/mod/assign/view.php?action=editsubmission&id=${this.moduleId}`,
+            });
         } catch (error) {
             CoreDomUtils.showErrorModalDefault(error, 'Error getting assigment data.');
 
@@ -239,7 +251,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
      *
      * @param submissionStatus Current submission status.
      * @param options Options.
-     * @return Promise resolved with the new submission status if it changed, original submission status otherwise.
+     * @returns Promise resolved with the new submission status if it changed, original submission status otherwise.
      */
     protected async startSubmissionIfNeeded(
         submissionStatus: AddonModAssignGetSubmissionStatusWSResponse,
@@ -276,7 +288,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Get the input data.
      *
-     * @return Input data.
+     * @returns Input data.
      */
     protected getInputData(): CoreFormFields {
         return CoreForms.getDataFromForm(document.forms['addon-mod_assign-edit-form']);
@@ -285,7 +297,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Check if data has changed.
      *
-     * @return Promise resolved with boolean: whether data has changed.
+     * @returns Promise resolved with boolean: whether data has changed.
      */
     protected async hasDataChanged(): Promise<boolean> {
         // Usually the hasSubmissionDataChanged call will be resolved inmediately, causing the modal to be shown just an instant.
@@ -311,7 +323,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
      * Get data to submit based on the input data.
      *
      * @param inputData The input data.
-     * @return Promise resolved with the data to submit.
+     * @returns Promise resolved with the data to submit.
      */
     protected async prepareSubmissionData(inputData: CoreFormFields): Promise<AddonModAssignSavePluginData> {
         // If there's offline data, always save it in offline.
@@ -329,7 +341,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
                 // Cannot submit in online, prepare for offline usage.
                 this.saveOffline = true;
 
-                return await AddonModAssignHelper.prepareSubmissionPluginData(
+                return AddonModAssignHelper.prepareSubmissionPluginData(
                     this.assign!,
                     this.userSubmission,
                     inputData,
@@ -364,7 +376,7 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Save the submission.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async saveSubmission(): Promise<void> {
         const inputData = this.getInputData();
@@ -467,14 +479,14 @@ export class AddonModAssignEditPage implements OnInit, OnDestroy, CanLeave {
     async timeUp(): Promise<void> {
         this.timeUpToast = await CoreDomUtils.showToastWithOptions({
             message: Translate.instant('addon.mod_assign.caneditsubmission'),
-            duration: 0,
+            duration: ToastDuration.STICKY,
             buttons: [Translate.instant('core.dismiss')],
             cssClass: 'core-danger-toast',
         });
     }
 
     /**
-     * Component being destroyed.
+     * @inheritdoc
      */
     ngOnDestroy(): void {
         this.isDestroyed = true;

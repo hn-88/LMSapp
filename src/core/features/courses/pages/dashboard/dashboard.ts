@@ -24,6 +24,10 @@ import { CoreCourseBlock } from '@features/course/services/course';
 import { CoreBlockComponent } from '@features/block/components/block/block';
 import { CoreNavigator } from '@services/navigator';
 import { CoreBlockDelegate } from '@features/block/services/block-delegate';
+import { CoreTime } from '@singletons/time';
+import { CoreAnalytics, CoreAnalyticsEventType } from '@services/analytics';
+import { Translate } from '@singletons';
+import { CoreUtils } from '@services/utils/utils';
 
 /**
  * Page that displays the dashboard page.
@@ -36,6 +40,7 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
 
     @ViewChildren(CoreBlockComponent) blocksComponents?: QueryList<CoreBlockComponent>;
 
+    hasMainBlocks = false;
     hasSideBlocks = false;
     searchEnabled = false;
     downloadCourseEnabled = false;
@@ -45,6 +50,7 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
     loaded = false;
 
     protected updateSiteObserver: CoreEventObserver;
+    protected logView: () => void;
 
     constructor() {
         // Refresh the enabled flags if site is updated.
@@ -54,6 +60,18 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
             this.downloadCoursesEnabled = !CoreCourses.isDownloadCoursesDisabledInSite();
 
         }, CoreSites.getCurrentSiteId());
+
+        this.logView = CoreTime.once(async () => {
+            await CoreUtils.ignoreErrors(CoreCourses.logView('dashboard'));
+
+            CoreAnalytics.logEvent({
+                type: CoreAnalyticsEventType.VIEW_ITEM,
+                ws: 'core_my_view_page',
+                name: Translate.instant('core.courses.mymoodle'),
+                data: { category: 'course', page: 'dashboard' },
+                url: '/my/',
+            });
+        });
     }
 
     /**
@@ -70,7 +88,7 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
     /**
      * Convenience function to fetch the dashboard data.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async loadContent(): Promise<void> {
         const available = await CoreCoursesDashboard.isAvailable();
@@ -84,6 +102,7 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
 
                 this.blocks = blocks.mainBlocks;
 
+                this.hasMainBlocks = CoreBlockDelegate.hasSupportedBlock(blocks.mainBlocks);
                 this.hasSideBlocks = CoreBlockDelegate.hasSupportedBlock(blocks.sideBlocks);
             } catch (error) {
                 CoreDomUtils.showErrorModal(error);
@@ -100,6 +119,8 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
         }
 
         this.loaded = true;
+
+        this.logView();
     }
 
     /**
@@ -116,6 +137,8 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
                 visible: true,
             },
         ];
+
+        this.hasMainBlocks = CoreBlockDelegate.isBlockSupported('myoverview') || CoreBlockDelegate.isBlockSupported('timeline');
     }
 
     /**
@@ -150,7 +173,7 @@ export class CoreCoursesDashboardPage implements OnInit, OnDestroy {
     }
 
     /**
-     * Component being destroyed.
+     * @inheritdoc
      */
     ngOnDestroy(): void {
         this.updateSiteObserver.off();

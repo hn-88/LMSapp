@@ -45,7 +45,7 @@ export class CoreContextMenuItemComponent implements OnInit, OnDestroy, OnChange
     @Input() ariaAction?: string; // Aria label to add to iconAction. If not set, it will be equal to content.
     @Input() href?: string; // Link to go if no action provided.
     @Input() captureLink?: boolean | string; // Whether the link needs to be captured by the app.
-    @Input() autoLogin?: string; // Whether the link needs to be opened using auto-login.
+    @Input() autoLogin: boolean | string = true; // Whether the link needs to be opened using auto-login.
     @Input() closeOnClick = true; // Whether to close the popover when the item is clicked.
     @Input() priority?: number; // Used to sort items. The highest priority, the highest position.
     @Input() badge?: string; // A badge to show in the item.
@@ -59,9 +59,9 @@ export class CoreContextMenuItemComponent implements OnInit, OnDestroy, OnChange
     @Output() toggleChange = new EventEmitter<boolean>();// Will emit an event when toggle changes to enable 2-way data binding.
 
     /**
-     * @deprecated since 4.0.
+     * @deprecated since 4.0. Not used anymore.
      */
-    @Input() iconDescription?: string; // Name of the icon to be shown on the left side of the item. Not used anymore.
+    @Input() iconDescription?: string;
 
     protected hasAction = false;
     protected destroyed = false;
@@ -74,7 +74,7 @@ export class CoreContextMenuItemComponent implements OnInit, OnDestroy, OnChange
     }
 
     /**
-     * Component being initialized.
+     * @inheritdoc
      */
     ngOnInit(): void {
         // Initialize values.
@@ -88,12 +88,12 @@ export class CoreContextMenuItemComponent implements OnInit, OnDestroy, OnChange
 
         // Navigation help if href provided.
         this.captureLink = this.href && this.captureLink ? this.captureLink : false;
-        this.autoLogin = this.autoLogin || 'check';
 
         if (!this.destroyed) {
             this.ctxtMenu.addItem(this);
         }
 
+        // eslint-disable-next-line deprecation/deprecation
         if (this.iconDescription !== undefined) {
             CoreLogger.getInstance('CoreContextMenuItemComponent')
                 .warn('iconDescription Input is deprecated and should not be used');

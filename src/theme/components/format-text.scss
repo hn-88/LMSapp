@@ -7,7 +7,7 @@ core-format-text {
     --core-format-text-viewer-icon-background: rgba(255, 255, 255, .5);
 }
 
-body.dark core-format-text {
+html.dark core-format-text {
     --core-format-text-viewer-icon-background: rgba(0, 0, 0, .5);
 }
 
@@ -16,6 +16,7 @@ core-format-text {
     user-select: text;
     word-break: break-word;
     word-wrap: break-word;
+    cursor: auto;
 
     @include core-transition(background-color color, 200ms);
     &.core-loading {
@@ -73,7 +74,7 @@ core-format-text {
         position: absolute;
         @include position(null, 10px, 10px, null);
         color: var(--ion-text-color);
-        border-radius: var(--huge-radius);
+        border-radius: var(--radius-xl);
         background-color: var(--core-format-text-viewer-icon-background);
         display: flex;
 
@@ -111,6 +112,7 @@ core-format-text {
         margin: 0;
         padding: 10px 0;
     }
+
 }
 
 @keyframes loading {
@@ -205,6 +207,7 @@ core-format-text {
 }
 
 core-format-text,
+.item core-format-text,
 core-rich-text-editor .core-rte-editor {
     @include core-headings();
 
@@ -277,7 +280,7 @@ core-rich-text-editor .core-rte-editor {
         border: 1px solid var(--gray-500);
         background: var(--contrast-background);
         padding: 6px 8px;
-        border-radius: var(--small-radius);
+        border-radius: var(--radius-xs);
         margin-left: 2px;
         margin-right: 2px;
         margin-bottom: 10px;
@@ -296,7 +299,7 @@ core-rich-text-editor .core-rte-editor {
 
     input[type=radio],
     input[type=checkbox] {
-        position: relative;
+        position: relative !important;
 
         --color: var(--text-color);
         --color-checked: var(--color);
@@ -352,6 +355,9 @@ core-rich-text-editor .core-rte-editor {
         top: 2px;
     }
 
+    .form-check-inline .form-check-input {
+        flex-shrink: 0;
+    }
 
     // Atto styles
     // -------------------------
@@ -430,6 +436,14 @@ core-rich-text-editor .core-rte-editor {
     // Bootstrap 4 Styles
     // -------------------------
 
+    // _reboot.scss
+    fieldset {
+        min-width: 0;
+        padding: 0;
+        margin: 0;
+        border: 0;
+    }
+
     // _media.scss
     .media {
         display: flex;
@@ -474,6 +488,44 @@ core-rich-text-editor .core-rte-editor {
         .alert-#{$color-name} p {
             color: var(--color-base);
         }
+    }
+
+    // _forms.scss
+    .form-check {
+        position: relative;
+        display: block;
+        padding-left: 1.25rem;
+    }
+
+    .form-check-input {
+        position: absolute;
+        margin-top: .3rem;
+        margin-left: -1.25rem;
+
+        &[disabled] ~ .form-check-label,
+        &:disabled ~ .form-check-label {
+            color: $gray-600;
+        }
+
+    }
+
+    .form-check-label {
+        margin-bottom: 0;
+    }
+
+    .form-check-inline {
+        display: inline-flex;
+        align-items: center;
+        padding-left: 0;
+        margin-right: .75rem;
+
+        .form-check-input {
+            position: static;
+            margin-top: 0;
+            margin-right: .3125rem;
+            margin-left: 0;
+        }
+
     }
 
     // utilities/_align.scss
@@ -623,6 +675,29 @@ core-rich-text-editor .core-rte-editor {
             background-color: var(--#{$color-name});
         }
     }
+
+    .btn-link {
+        background: none;
+    }
+
+    button, .btn {
+        margin: 4px 8px;
+        padding-left: 12px;
+        padding-right: 12px;
+        border-radius: var(--core-input-radius);
+        a {
+            color: inherit;
+        }
+    }
+
+    @each $color-name, $unused in $colors {
+        .btn.btn-#{$color-name} {
+            --color-base: var(--#{$color-name});
+            color: var(--#{$color-name}-shade);
+            border-color: var(--color-base);
+            background-color: var(--#{$color-name}-tint);
+        }
+    }
 }
 
 // h1 is too big and ugly, reduce size when loading.
@@ -633,7 +708,7 @@ ion-header.ios h1 core-format-text {
     }
 }
 
-body.dark core-format-text select,
-body.dark core-rich-text-editor .core-rte-editor select {
+html.dark core-format-text select,
+html.dark core-rich-text-editor .core-rte-editor select {
 	background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
 }

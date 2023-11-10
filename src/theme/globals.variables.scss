@@ -13,7 +13,7 @@ $gray-500:    #8f959e !default; // Stroke on inputs
 $gray-600:    #6a737b !default;
 $gray-700:    #495057 !default;
 $gray-800:    #343a40 !default;
-$gray-900:    #1d2125 !default; // Copy text
+$gray-900:    #282828 !default; // Copy text
 $black:       #000000 !default; // Avoid usage
 
 $blue:        #0f6cbf !default;
@@ -22,7 +22,7 @@ $green:       #357a32 !default;
 $red:         #ca3120 !default;
 $yellow:      #f0ad4e !default;
 
-$brand-color: #ff7518 !default;
+$brand-color: #f98012 !default;
 
 $text-color:               $gray-900 !default;
 $text-color-rgb:           color-to-rgb-list($text-color) !default;
@@ -70,7 +70,7 @@ $colors:  (
 // The minimum dimensions at which your layout will change,
 // adapting to different screen sizes, for use in media queries
 $screen-breakpoints: (
-    xs: 0,
+    xs: 0px,
     sm: 576px,
     md: 768px,
     lg: 992px,
@@ -102,6 +102,7 @@ $core-login-loading-color: false !default;
 $core-login-loading-color-dark: $text-color-dark !default;
 $core-login-hide-forgot-password: false !default;
 $core-login-hide-need-help: false !default;
+$core-login-hide-qrcode: false !default;
 
 // Configuration options for more page. (deprecated on 4.0)
 $core-more-hide-siteinfo: false !default;
@@ -123,11 +124,17 @@ $activity-icon-colors: (
     interface: #a378ff
 ) !default;
 
+$calendar-event-category-category: #8e24aa !default;
+$calendar-event-category-course: $red !default;
+$calendar-event-category-group: $yellow !default;
+$calendar-event-category-user: $blue !default;
+$calendar-event-category-site: $green !default;
+
 // Calendar event category background colors.
 $calendar-event-category-colors: (
-    category: #8e24aa,
-    course: $red,
-    group: $yellow,
-    user: $blue,
-    site: $green
+    category: $calendar-event-category-category,
+    course: $calendar-event-category-course,
+    group: $calendar-event-category-group,
+    user: $calendar-event-category-user,
+    site: $calendar-event-category-site,
 ) !default;

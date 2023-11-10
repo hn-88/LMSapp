@@ -20,7 +20,6 @@ import { CoreDomUtils } from '@services/utils/dom';
 import { CoreTextUtils } from '@services/utils/text';
 import { CoreCountry, CoreUtils } from '@services/utils/utils';
 import { CoreWS, CoreWSExternalWarning } from '@services/ws';
-import { CoreConstants } from '@/core/constants';
 import { Translate } from '@singletons';
 import { CoreSitePublicConfigResponse } from '@classes/site';
 import { CoreUserProfileFieldDelegate } from '@features/user/services/user-profile-field-delegate';
@@ -33,7 +32,7 @@ import {
 import { CoreNavigator } from '@services/navigator';
 import { CoreForms } from '@singletons/form';
 import { CoreRecaptchaComponent } from '@components/recaptcha/recaptcha';
-import { CoreText } from '@singletons/text';
+import { CorePath } from '@singletons/path';
 import { CoreDom } from '@singletons/dom';
 
 /**
@@ -61,6 +60,7 @@ export class CoreLoginEmailSignupPage implements OnInit {
     settingsLoaded = false;
     allRequiredSupported = true;
     signupUrl?: string;
+    formSubmitClicked = false;
     captcha = {
         recaptcharesponse: '',
     };
@@ -155,13 +155,13 @@ export class CoreLoginEmailSignupPage implements OnInit {
     /**
      * Fetch the required data from the server.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async fetchData(): Promise<void> {
         try {
             // Get site config.
             this.siteConfig = await CoreSites.getSitePublicConfig(this.siteUrl);
-            this.signupUrl = CoreText.concatenatePaths(this.siteConfig.httpswwwroot, 'login/signup.php');
+            this.signupUrl = CorePath.concatenatePaths(this.siteConfig.httpswwwroot, 'login/signup.php');
 
             if (this.treatSiteConfig()) {
                 // Check content verification.
@@ -192,7 +192,7 @@ export class CoreLoginEmailSignupPage implements OnInit {
     /**
      * Get signup settings from server.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async getSignupSettings(): Promise<void> {
         this.settings = await CoreWS.callAjax<AuthEmailSignupSettings>(
@@ -217,12 +217,13 @@ export class CoreLoginEmailSignupPage implements OnInit {
             this.countryControl.setValue(this.settings.country || '');
         }
 
-        this.namefieldsErrors = {};
+        const namefieldsErrors = {};
         if (this.settings.namefields) {
             this.settings.namefields.forEach((field) => {
-                this.namefieldsErrors![field] = CoreLoginHelper.getErrorMessages('core.login.missing' + field);
+                namefieldsErrors[field] = CoreLoginHelper.getErrorMessages('core.login.missing' + field);
             });
         }
+        this.namefieldsErrors = namefieldsErrors;
 
         this.countries = await CoreUtils.getCountryListSorted();
     }
@@ -230,11 +231,11 @@ export class CoreLoginEmailSignupPage implements OnInit {
     /**
      * Treat the site config, checking if it's valid and extracting the data we're interested in.
      *
-     * @return True if success.
+     * @returns True if success.
      */
     protected treatSiteConfig(): boolean {
         if (this.siteConfig?.registerauth == 'email' && !CoreLoginHelper.isEmailSignupDisabled(this.siteConfig)) {
-            this.siteName = CoreConstants.CONFIG.sitename ? CoreConstants.CONFIG.sitename : this.siteConfig.sitename;
+            this.siteName = this.siteConfig.sitename;
             this.authInstructions = this.siteConfig.authinstructions;
             this.ageDigitalConsentVerification = this.siteConfig.agedigitalconsentverification;
             this.supportName = this.siteConfig.supportname;
@@ -259,11 +260,13 @@ export class CoreLoginEmailSignupPage implements OnInit {
      * Create account.
      *
      * @param e Event.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async create(e: Event): Promise<void> {
         e.preventDefault();
         e.stopPropagation();
+
+        this.formSubmitClicked = true;
 
         if (!this.signupForm.valid || (this.settings?.recaptchapublickey && !this.captcha.recaptcharesponse)) {
             // Form not valid. Mark all controls as dirty to display errors.
@@ -355,7 +358,7 @@ export class CoreLoginEmailSignupPage implements OnInit {
      * Escape mail to avoid special characters to be treated as a RegExp.
      *
      * @param text Initial mail.
-     * @return Escaped mail.
+     * @returns Escaped mail.
      */
     escapeMail(text: string): string {
         return CoreTextUtils.escapeForRegex(text);
@@ -373,7 +376,7 @@ export class CoreLoginEmailSignupPage implements OnInit {
      */
     showContactOnSite(): void {
         CoreUtils.openInBrowser(
-            CoreText.concatenatePaths(this.siteUrl, '/login/verify_age_location.php'),
+            CorePath.concatenatePaths(this.siteUrl, '/login/verify_age_location.php'),
             { showBrowserWarning: false },
         );
     }
@@ -382,7 +385,7 @@ export class CoreLoginEmailSignupPage implements OnInit {
      * Verify Age.
      *
      * @param e Event.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async verifyAge(e: Event): Promise<void> {
         e.preventDefault();

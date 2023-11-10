@@ -4,11 +4,10 @@
     --toobar-background: var(--white);
     --button-color: var(--ion-text-color);
     --button-active-color: var(--gray-300);
-    --background: var(--ion-item-background);
+    --background: var(--rte-editor-background);
 }
 
-:host-context(body.dark) {
-    --background: var(--medium);
+:host-context(html.dark) {
     --color: var(--white);
     --button-color: var(--gray-200);
     --button-active-color: var(--gray-500);
@@ -126,7 +125,7 @@
             margin: 0 auto;
             font-size: 18px;
             background-color: var(--toobar-background);
-            border-radius: var(--small-radius);
+            border-radius: var(--radius-xs);
             @include core-transition(background-color, 200ms);
             color: var(--button-color);
             cursor: pointer;
@@ -150,8 +149,9 @@
                     background-color: var(--toobar-background);
                 }
 
-                &.toolbar-arrow-hidden {
-                    opacity: 0;
+                &[disabled],
+                &:disabled {
+                    opacity: .5;
                 }
             }
         }

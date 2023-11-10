@@ -18,6 +18,7 @@ import { CoreDomUtils } from '@services/utils/dom';
 import { CoreCourse } from '@features/course/services/course';
 import { CoreSiteWSPreSets } from '@classes/site';
 import { makeSingleton } from '@singletons';
+import { CoreCourseModuleDelegate } from '@features/course/services/module-delegate';
 
 const ROOT_CACHE_KEY = 'AddonBlockRecentlyAccessedItems:';
 
@@ -30,7 +31,7 @@ export class AddonBlockRecentlyAccessedItemsProvider {
     /**
      * Get cache key for get last accessed items value WS call.
      *
-     * @return Cache key.
+     * @returns Cache key.
      */
     protected getRecentItemsCacheKey(): string {
         return ROOT_CACHE_KEY + ':recentitems';
@@ -40,7 +41,7 @@ export class AddonBlockRecentlyAccessedItemsProvider {
      * Get last accessed items.
      *
      * @param siteId Site ID. If not defined, use current site.
-     * @return Promise resolved when the info is retrieved.
+     * @returns Promise resolved when the info is retrieved.
      */
     async getRecentItems(siteId?: string): Promise<AddonBlockRecentlyAccessedItemsItem[]> {
         const site = await CoreSites.getSite(siteId);
@@ -57,7 +58,7 @@ export class AddonBlockRecentlyAccessedItemsProvider {
         items = await Promise.all(items.map(async (item) => {
             const modicon = item.icon && CoreDomUtils.getHTMLElementAttribute(item.icon, 'src');
 
-            item.iconUrl = await CoreCourse.getModuleIconSrc(item.modname, modicon || undefined);
+            item.iconUrl = await CoreCourseModuleDelegate.getModuleIconSrc(item.modname, modicon || undefined);
             item.iconTitle = item.icon && CoreDomUtils.getHTMLElementAttribute(item.icon, 'title');
             cmIds.push(item.cmid);
 
@@ -90,7 +91,7 @@ export class AddonBlockRecentlyAccessedItemsProvider {
      * Invalidates get last accessed items WS call.
      *
      * @param siteId Site ID to invalidate. If not defined, use current site.
-     * @return Promise resolved when the data is invalidated.
+     * @returns Promise resolved when the data is invalidated.
      */
     async invalidateRecentItems(siteId?: string): Promise<void> {
         const site = await CoreSites.getSite(siteId);
@@ -103,6 +104,8 @@ export const AddonBlockRecentlyAccessedItems = makeSingleton(AddonBlockRecentlyA
 
 /**
  * Result of WS block_recentlyaccesseditems_get_recent_items.
+ *
+ * The most recently accessed activities/resources by the logged user.
  */
 export type AddonBlockRecentlyAccessedItemsItem = {
     id: number; // Id.
@@ -116,6 +119,7 @@ export type AddonBlockRecentlyAccessedItemsItem = {
     viewurl: string; // Viewurl.
     courseviewurl: string; // Courseviewurl.
     icon: string; // Icon.
+    purpose?: string; // Purpose. @since 4.0
 } & AddonBlockRecentlyAccessedItemsItemCalculatedData;
 
 /**

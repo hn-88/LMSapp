@@ -13,21 +13,23 @@
 // limitations under the License.
 
 import { Component, ViewChild, OnInit, OnDestroy } from '@angular/core';
-import { CoreAnimations } from '@components/animations';
 import { CoreSendMessageFormComponent } from '@components/send-message-form/send-message-form';
 import { CanLeave } from '@guards/can-leave';
 import { IonContent } from '@ionic/angular';
 import { CoreApp } from '@services/app';
+import { CoreNetwork } from '@services/network';
 import { CoreNavigator } from '@services/navigator';
 import { CoreSites } from '@services/sites';
 import { CoreDomUtils } from '@services/utils/dom';
 import { CoreUtils } from '@services/utils/utils';
-import { Network, NgZone, Translate } from '@singletons';
+import { NgZone, Translate } from '@singletons';
 import { CoreEvents } from '@singletons/events';
 import { Subscription } from 'rxjs';
 import { AddonModChatUsersModalComponent, AddonModChatUsersModalResult } from '../../components/users-modal/users-modal';
 import { AddonModChat, AddonModChatProvider, AddonModChatUser } from '../../services/chat';
 import { AddonModChatFormattedMessage, AddonModChatHelper } from '../../services/chat-helper';
+import { CoreTime } from '@singletons/time';
+import { CoreAnalytics, CoreAnalyticsEventType } from '@services/analytics';
 
 /**
  * Page that displays a chat session.
@@ -35,7 +37,6 @@ import { AddonModChatFormattedMessage, AddonModChatHelper } from '../../services
 @Component({
     selector: 'page-addon-mod-chat-chat',
     templateUrl: 'chat.html',
-    animations: [CoreAnimations.SLIDE_IN_OUT],
     styleUrls: ['chat.scss'],
 })
 export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
@@ -62,14 +63,25 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
     protected viewDestroyed = false;
     protected pollingRunning = false;
     protected users: AddonModChatUser[] = [];
+    protected logView: () => void;
 
     constructor() {
         this.currentUserId = CoreSites.getCurrentSiteUserId();
-        this.isOnline = CoreApp.isOnline();
-        this.onlineSubscription = Network.onChange().subscribe(() => {
+        this.isOnline = CoreNetwork.isOnline();
+        this.onlineSubscription = CoreNetwork.onChange().subscribe(() => {
             // Execute the callback in the Angular zone, so change detection doesn't stop working.
             NgZone.run(() => {
-                this.isOnline = CoreApp.isOnline();
+                this.isOnline = CoreNetwork.isOnline();
+            });
+        });
+
+        this.logView = CoreTime.once(() => {
+            CoreAnalytics.logEvent({
+                type: CoreAnalyticsEventType.VIEW_ITEM_LIST,
+                ws: 'mod_chat_get_chat_latest_messages',
+                name: this.title,
+                data: { chatid: this.chatId, category: 'chat' },
+                url: `/mod/chat/gui_ajax/index.php?id=${this.chatId}`,
             });
         });
     }
@@ -89,6 +101,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
             await this.fetchMessages();
 
             this.startPolling();
+            this.logView();
         } catch (error) {
             CoreDomUtils.showErrorModalDefault(error, 'addon.mod_chat.errorwhileconnecting', true);
             CoreNavigator.back();
@@ -117,7 +130,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Convenience function to login the user.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async loginUser(): Promise<void> {
         this.sessionId = await AddonModChat.loginUser(this.chatId);
@@ -126,7 +139,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Convenience function to fetch chat messages.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async fetchMessages(): Promise<void> {
         const messagesInfo = await AddonModChat.getLatestMessages(this.sessionId!, this.lastTime);
@@ -195,7 +208,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
      * Get the user fullname for a beep.
      *
      * @param id User Id before parsing.
-     * @return User fullname.
+     * @returns User fullname.
      */
     protected async getUserFullname(id: string): Promise<string> {
         const idNumber = parseInt(id, 10);
@@ -221,7 +234,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
             }
 
             return id;
-        } catch (error) {
+        } catch {
             // Ignore errors.
             return id;
         }
@@ -253,7 +266,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Convenience function to be called every certain time to fetch chat messages.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     protected async fetchMessagesInterval(): Promise<void> {
         if (!this.isOnline || this.pollingRunning) {
@@ -320,7 +333,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Try to reconnect.
      *
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async reconnect(): Promise<void> {
         const modal = await CoreDomUtils.showModalLoading();
@@ -352,7 +365,7 @@ export class AddonModChatChatPage implements OnInit, OnDestroy, CanLeave {
     /**
      * Check if we can leave the page or not.
      *
-     * @return Resolved with true if we can leave it, rejected if not.
+     * @returns Resolved with true if we can leave it, rejected if not.
      */
     async canLeave(): Promise<boolean> {
         if (! this.messages.some((message) => !message.special)) {

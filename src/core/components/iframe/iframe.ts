@@ -28,6 +28,8 @@ import { CoreScreen, CoreScreenOrientation } from '@services/screen';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { NavigationStart } from '@angular/router';
+import { CoreSites } from '@services/sites';
+import { CoreUrl } from '@singletons/url';
 
 @Component({
     selector: 'core-iframe',
@@ -40,11 +42,13 @@ export class CoreIframeComponent implements OnChanges, OnDestroy {
 
     @ViewChild('iframe') iframe?: ElementRef;
     @Input() src?: string;
+    @Input() id: string | null = null;
     @Input() iframeWidth?: string;
     @Input() iframeHeight?: string;
     @Input() allowFullscreen?: boolean | string;
     @Input() showFullscreenOnToolbar?: boolean | string;
     @Input() autoFullscreenOnRotate?: boolean | string;
+    @Input() allowAutoLogin = true;
     @Output() loaded: EventEmitter<HTMLIFrameElement> = new EventEmitter<HTMLIFrameElement>();
 
     loading?: boolean;
@@ -57,9 +61,13 @@ export class CoreIframeComponent implements OnChanges, OnDestroy {
     protected style?: HTMLStyleElement;
     protected orientationObs?: CoreEventObserver;
     protected navSubscription?: Subscription;
+    protected messageListenerFunction: (event: MessageEvent) => Promise<void>;
 
     constructor(protected elementRef: ElementRef<HTMLElement>) {
         this.loaded = new EventEmitter<HTMLIFrameElement>();
+
+        // Listen for messages from the iframe.
+        window.addEventListener('message', this.messageListenerFunction = (event) => this.onIframeMessage(event));
     }
 
     /**
@@ -138,7 +146,7 @@ export class CoreIframeComponent implements OnChanges, OnDestroy {
     /**
      * Check if the element is in a hidden page.
      *
-     * @return Whether the element is in a hidden page.
+     * @returns Whether the element is in a hidden page.
      */
     protected isInHiddenPage(): boolean {
         // If we can't find the parent ion-page, consider it to be hidden too.
@@ -149,19 +157,37 @@ export class CoreIframeComponent implements OnChanges, OnDestroy {
      * Detect changes on input properties.
      */
     async ngOnChanges(changes: {[name: string]: SimpleChange }): Promise<void> {
-        if (changes.src) {
-            const url = CoreUrlUtils.getYoutubeEmbedUrl(changes.src.currentValue) || changes.src.currentValue;
+        if (!changes.src) {
+            return;
+        }
+
+        let url = this.src;
+
+        if (url && !CoreUrlUtils.isLocalFileUrl(url)) {
+            url = CoreUrlUtils.getYoutubeEmbedUrl(url) || url;
             this.displayHelp = CoreIframeUtils.shouldDisplayHelpForUrl(url);
 
+            const currentSite = CoreSites.getCurrentSite();
+            if (this.allowAutoLogin && currentSite) {
+                // Format the URL to add auto-login if needed.
+                url = await currentSite.getAutoLoginUrl(url, false);
+            }
+
+            if (currentSite?.isVersionGreaterEqualThan('3.7') && CoreUrl.isVimeoVideoUrl(url)) {
+                // Only treat the Vimeo URL if site is 3.7 or bigger. In older sites the width and height params were mandatory,
+                // and there was no easy way to make the iframe responsive.
+                url = CoreUrl.getVimeoPlayerUrl(url, currentSite) ?? url;
+            }
+
             await CoreIframeUtils.fixIframeCookies(url);
-
-            this.safeUrl = DomSanitizer.bypassSecurityTrustResourceUrl(CoreFile.convertFileSrc(url));
-
-            // Now that the URL has been set, initialize the iframe. Wait for the iframe to the added to the DOM.
-            setTimeout(() => {
-                this.init();
-            });
         }
+
+        this.safeUrl = DomSanitizer.bypassSecurityTrustResourceUrl(url ? CoreFile.convertFileSrc(url) : '');
+
+        // Now that the URL has been set, initialize the iframe. Wait for the iframe to the added to the DOM.
+        setTimeout(() => {
+            this.init();
+        });
     }
 
     /**
@@ -177,12 +203,13 @@ export class CoreIframeComponent implements OnChanges, OnDestroy {
     ngOnDestroy(): void {
         this.orientationObs?.off();
         this.navSubscription?.unsubscribe();
+        window.removeEventListener('message', this.messageListenerFunction);
     }
 
     /**
      * Toggle fullscreen mode.
      */
-    toggleFullscreen(enable?: boolean): void {
+    toggleFullscreen(enable?: boolean, notifyIframe = true): void {
         if (enable !== undefined) {
             this.fullscreen = enable;
         } else {
@@ -195,11 +222,32 @@ export class CoreIframeComponent implements OnChanges, OnDestroy {
             // Done this way because of the shadow DOM.
             this.style.textContent = this.fullscreen
                 ? '@media screen and (orientation: landscape) {\
-                    .toolbar-container { flex-direction: column-reverse !important; height: 100%; } }'
+                    .core-iframe-fullscreen .toolbar-container { flex-direction: column-reverse !important; height: 100%; } }'
                 : '';
         }
 
         document.body.classList.toggle('core-iframe-fullscreen', this.fullscreen);
+
+        if (notifyIframe && this.iframe?.nativeElement) {
+            (<HTMLIFrameElement> this.iframe.nativeElement).contentWindow?.postMessage(
+                this.fullscreen ? 'enterFullScreen' : 'exitFullScreen',
+                '*',
+            );
+        }
+    }
+
+    /**
+     * Treat an iframe message event.
+     *
+     * @param event Event.
+     * @returns Promise resolved when done.
+     */
+    protected async onIframeMessage(event: MessageEvent): Promise<void> {
+        if (event.data == 'enterFullScreen' && this.showFullscreenOnToolbar && !this.fullscreen) {
+            this.toggleFullscreen(true, false);
+        } else if (event.data == 'exitFullScreen' && this.fullscreen) {
+            this.toggleFullscreen(false, false);
+        }
     }
 
 }

@@ -58,12 +58,8 @@ export class AddonModLtiModuleHandlerService extends CoreModuleHandlerBase imple
     ): Promise<CoreCourseModuleHandlerData> {
         const data = await super.getData(module, courseId, sectionId, forCoursePage);
         data.showDownloadButton = false;
-
-        // Handle custom icons.
-        data.icon =  module.modicon;
-
-        data.buttons = [{
-            icon: 'fas-external-link-alt',
+        data.button = {
+            icon: 'fas-up-right-from-square',
             label: 'addon.mod_lti.launchactivity',
             action: (event: Event, module: CoreCourseModuleData, courseId: number): void => {
                 // Launch the LTI.
@@ -71,7 +67,7 @@ export class AddonModLtiModuleHandlerService extends CoreModuleHandlerBase imple
 
                 CoreCourse.storeModuleViewed(courseId, module.id);
             },
-        }];
+        };
 
         return data;
     }
@@ -81,6 +77,13 @@ export class AddonModLtiModuleHandlerService extends CoreModuleHandlerBase imple
      */
     async getMainComponent(): Promise<Type<unknown>> {
         return AddonModLtiIndexComponent;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    getIconSrc(module?: CoreCourseModuleData | undefined, modicon?: string | undefined): string | undefined {
+        return module?.modicon ?? modicon ?? CoreCourse.getModuleIconSrc(this.modName);
     }
 
 }

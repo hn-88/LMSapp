@@ -22,6 +22,7 @@ import { CoreSitePlugins, CoreSitePluginsContent, CoreSitePluginsProvider } from
 import { CoreNavigator } from '@services/navigator';
 import { CoreDomUtils } from '@services/utils/dom';
 import { CoreEvents } from '@singletons/events';
+import { CoreSites, CoreSitesReadingStrategy } from '@services/sites';
 
 /**
  * Component to render a site plugin content.
@@ -61,7 +62,7 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
     }
 
     /**
-     * Component being initialized.
+     * @inheritdoc
      */
     ngOnInit(): void {
         this.fetchContent();
@@ -86,7 +87,7 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
      * Fetches the content to render.
      *
      * @param refresh Whether the user is refreshing.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async fetchContent(refresh?: boolean): Promise<void> {
         this.onLoadingContent.emit(refresh);
@@ -108,11 +109,13 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
             this.jsData = Object.assign(this.data, CoreSitePlugins.createDataForJS(this.initResult, result));
 
             // Pass some methods as jsData so they can be called from the template too.
-            this.jsData.fetchContent = this.fetchContent.bind(this);
-            this.jsData.openContent = this.openContent.bind(this);
-            this.jsData.refreshContent = this.refreshContent.bind(this);
-            this.jsData.updateContent = this.updateContent.bind(this);
-            this.jsData.updateModuleCourseContent = this.updateModuleCourseContent.bind(this);
+            this.jsData.fetchContent = refresh => this.fetchContent(refresh);
+            this.jsData.openContent = (title, args, component, method, jsData, preSets, ptrEnabled) =>
+                this.openContent(title, args, component, method, jsData, preSets, ptrEnabled);
+            this.jsData.refreshContent = showSpinner => this.refreshContent(showSpinner);
+            this.jsData.updateContent = (args, component, method, jsData, preSets) =>
+                this.updateContent(args, component, method, jsData, preSets);
+            this.jsData.updateModuleCourseContent = (cmId, alreadyFetched) => this.updateModuleCourseContent(cmId, alreadyFetched);
 
             this.onContentLoaded.emit({ refresh: !!refresh, success: true });
         } catch (error) {
@@ -220,7 +223,7 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
      *
      * @param name Name of the function to call.
      * @param params List of params to send to the function.
-     * @return Result of the call. Undefined if no component instance or the function doesn't exist.
+     * @returns Result of the call. Undefined if no component instance or the function doesn't exist.
      */
     callComponentFunction(name: string, params?: unknown[]): unknown | undefined {
         return this.compileComponent?.callComponentFunction(name, params);
@@ -234,6 +237,19 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
      */
     updateModuleCourseContent(cmId: number, alreadyFetched?: boolean): void {
         CoreEvents.trigger(CoreSitePluginsProvider.UPDATE_COURSE_CONTENT, { cmId, alreadyFetched });
+    }
+
+    /**
+     * Update this content stored in the app's cache. This function will not reload the view, it will only update the data stored
+     * in the device so it's updated for the next usage. If you want to update the view, please use refreshContent.
+     */
+    async updateCachedContent(): Promise<void> {
+        await CoreSitePlugins.getContent(
+            this.component,
+            this.method,
+            this.args,
+            CoreSites.getReadingStrategyPreSets(CoreSitesReadingStrategy.ONLY_NETWORK),
+        );
     }
 
 }

@@ -52,7 +52,7 @@ export class CoreLoginSitesPage implements OnInit {
         this.accountsList = await CoreLoginHelper.getAccountsList();
         this.loaded = true;
 
-        if (this.accountsList.count == 0) {
+        if (this.accountsList.count == 0 && !CoreNavigator.getRouteBooleanParam('openAddSite')) {
             this.add();
         }
     }
@@ -69,7 +69,7 @@ export class CoreLoginSitesPage implements OnInit {
      *
      * @param event Click event.
      * @param site Site to delete.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async deleteSite(event: Event, site: CoreSiteBasicInfo): Promise<void> {
         event.stopPropagation();
@@ -104,7 +104,7 @@ export class CoreLoginSitesPage implements OnInit {
      *
      * @param event Click event.
      * @param siteId The site ID.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async login(event: Event, siteId: string): Promise<void> {
         event.preventDefault();

@@ -21,7 +21,7 @@ import { CoreTabsComponent } from '@components/tabs/tabs';
 import { CoreSettingsHelper } from '@features/settings/services/settings-helper';
 import { ScrollDetail } from '@ionic/core';
 import { CoreUtils } from '@services/utils/utils';
-import { CoreComponentsRegistry } from '@singletons/components-registry';
+import { CoreDirectivesRegistry } from '@singletons/directives-registry';
 import { CoreDom } from '@singletons/dom';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreMath } from '@singletons/math';
@@ -106,6 +106,11 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
      */
     ngOnInit(): void {
         this.collapsible = !CoreUtils.isFalseOrZero(this.collapsible);
+
+        if (CoreDom.closest(this.collapsedHeader, 'core-tabs-outlet')) {
+            this.collapsible = false;
+        }
+
         this.init();
     }
 
@@ -124,6 +129,8 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
             this.initializeExpandedHeader(),
             await this.enteredPromise,
         ]);
+
+        this.listenEvents();
 
         await this.initializeFloatingTitle();
         this.initializeContent();
@@ -291,10 +298,8 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
             return;
         }
 
-        this.listenEvents();
-
         // Initialize from tabs.
-        const tabs = CoreComponentsRegistry.resolve(this.page.querySelector('core-tabs-outlet'), CoreTabsOutletComponent);
+        const tabs = CoreDirectivesRegistry.resolve(this.page.querySelector('core-tabs-outlet'), CoreTabsOutletComponent);
 
         if (tabs) {
             const outlet = tabs.getOutlet();
@@ -378,8 +383,8 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
                     textProperties.includes(property),
             )
             .reduce((styles, property) => {
-                styles[0][property] = collapsedTitleStyles.getPropertyValue(property);
-                styles[1][property] = expandedTitleStyles.getPropertyValue(property);
+                styles[0][property] = CoreDom.getCSSPropertyValue(collapsedTitleStyles, property);
+                styles[1][property] = CoreDom.getCSSPropertyValue(expandedTitleStyles, property);
 
                 return styles;
             }, [{}, {}]);
@@ -424,14 +429,14 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
         }
 
         // Wait loadings to finish.
-        await CoreComponentsRegistry.waitComponentsReady(this.page, 'core-loading', CoreLoadingComponent);
+        await CoreDirectivesRegistry.waitDirectivesReady(this.page, 'core-loading', CoreLoadingComponent);
 
         // Wait tabs to be ready.
-        await CoreComponentsRegistry.waitComponentsReady(this.page, 'core-tabs', CoreTabsComponent);
-        await CoreComponentsRegistry.waitComponentsReady(this.page, 'core-tabs-outlet', CoreTabsOutletComponent);
+        await CoreDirectivesRegistry.waitDirectivesReady(this.page, 'core-tabs', CoreTabsComponent);
+        await CoreDirectivesRegistry.waitDirectivesReady(this.page, 'core-tabs-outlet', CoreTabsOutletComponent);
 
         // Wait loadings to finish, inside tabs (if any).
-        await CoreComponentsRegistry.waitComponentsReady(
+        await CoreDirectivesRegistry.waitDirectivesReady(
             this.page,
             'core-tab core-loading, ion-router-outlet core-loading',
             CoreLoadingComponent,
@@ -442,10 +447,10 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
      * Wait until all <core-format-text> children inside the element are done rendering.
      *
      * @param element Element.
-     * @return Promise resolved when texts are rendered.
+     * @returns Promise resolved when texts are rendered.
      */
     protected async waitFormatTextsRendered(element: Element): Promise<void> {
-        await CoreComponentsRegistry.waitComponentsReady(element, 'core-format-text', CoreFormatTextDirective);
+        await CoreDirectivesRegistry.waitDirectivesReady(element, 'core-format-text', CoreFormatTextDirective);
     }
 
     /**

@@ -19,8 +19,7 @@ import {
     CoreCourseOptionsHandler,
     CoreCourseOptionsHandlerData,
 } from '@features/course/services/course-options-delegate';
-import { CoreCourseUserAdminOrNavOptionIndexed } from '@features/courses/services/courses';
-import { CoreEnrolledCourseDataWithExtraInfoAndOptions } from '@features/courses/services/courses-helper';
+import { CoreCourseAnyCourseData, CoreCourseUserAdminOrNavOptionIndexed } from '@features/courses/services/courses';
 import { makeSingleton } from '@singletons';
 import { AddonNotes } from '../notes';
 
@@ -48,8 +47,8 @@ export class AddonNotesCourseOptionHandlerService implements CoreCourseOptionsHa
         accessData: CoreCourseAccess,
         navOptions?: CoreCourseUserAdminOrNavOptionIndexed,
     ): Promise<boolean> {
-        if (accessData && accessData.type == CoreCourseProvider.ACCESS_GUEST) {
-            return false; // Not enabled for guests.
+        if (accessData && accessData.type === CoreCourseProvider.ACCESS_GUEST) {
+            return false; // Not enabled for guest access.
         }
 
         if (navOptions && navOptions.notes !== undefined) {
@@ -73,7 +72,7 @@ export class AddonNotesCourseOptionHandlerService implements CoreCourseOptionsHa
     /**
      * @inheritdoc
      */
-    async prefetch(course: CoreEnrolledCourseDataWithExtraInfoAndOptions): Promise<void> {
+    async prefetch(course: CoreCourseAnyCourseData): Promise<void> {
         await AddonNotes.getNotes(course.id, undefined, true);
     }
 

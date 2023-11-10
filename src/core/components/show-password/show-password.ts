@@ -15,7 +15,7 @@
 import { Component, OnInit, AfterViewInit, Input, ElementRef, ContentChild } from '@angular/core';
 import { IonInput } from '@ionic/angular';
 
-import { CoreApp } from '@services/app';
+import { CorePlatform } from '@services/platform';
 import { CoreDomUtils } from '@services/utils/dom';
 import { CoreUtils } from '@services/utils/utils';
 
@@ -45,7 +45,6 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
     @ContentChild(IonInput) ionInput?: IonInput;
 
     shown = false; // Whether the password is shown.
-    label = ''; // Label for the button to show/hide.
 
     protected input?: HTMLInputElement; // Input affected.
     protected element: HTMLElement; // Current element.
@@ -66,9 +65,14 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
      */
     async ngAfterViewInit(): Promise<void> {
         if (this.ionInput) {
-            // It's an ion-input, use it to get the native element.
-            this.input = await this.ionInput.getInputElement();
-            this.setData(this.input);
+            try {
+                // It's an ion-input, use it to get the native element.
+                this.input = await this.ionInput.getInputElement();
+                this.setData(this.input);
+            } catch (error) {
+                // This should never fail, but it does in some testing environment because Ionic elements are not
+                // rendered properly. So in case this fails, we'll just ignore the error.
+            }
 
             return;
         }
@@ -97,7 +101,6 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
      * @param input The input element.
      */
     protected setData(input: HTMLInputElement): void {
-        this.label = this.shown ? 'core.hide' : 'core.show';
         input.type = this.shown ? 'text' : 'password';
     }
 
@@ -123,7 +126,7 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
 
         this.setData(this.input);
         // In Android, the keyboard is closed when the input type changes. Focus it again.
-        if (isFocused && CoreApp.isAndroid()) {
+        if (isFocused && CorePlatform.isAndroid()) {
             CoreDomUtils.focusElement(this.input);
         }
     }
@@ -134,7 +137,7 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
      * @param event The mouse event.
      */
     doNotBlur(event: Event): void {
-        if (event.type == 'keydown' && !this.isValidKeyboardKey(<KeyboardEvent>event)) {
+        if (event.type === 'keydown' && !this.isValidKeyboardKey(<KeyboardEvent>event)) {
             return;
         }
 
@@ -149,7 +152,7 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
      * @returns Wether space or enter have been pressed.
      */
     protected isValidKeyboardKey(event: KeyboardEvent): boolean {
-        return event.key == ' ' || event.key == 'Enter';
+        return event.key === ' ' || event.key === 'Enter';
     }
 
 }

@@ -70,7 +70,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
      */
     refreshIcon = CoreConstants.ICON_REFRESH;
     /**
-     * @deprecated since 4.0.. It won't be populated anymore.
+     * @deprecated since 4.0. It won't be populated anymore.
      */
     prefetchStatus?: string;
     /**
@@ -94,7 +94,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
     displayPrefetch = true;
     displaySize = true;
     displayGrades = false;
-    // @TODO:  // Currently display blogs is not an option since it may change soon adding new summary handlers.
+    // @todo  // Currently display blogs is not an option since it may change soon adding new summary handlers.
     displayBlog = false;
 
     ptrEnabled = true;
@@ -103,7 +103,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
     jsData?: Record<string, unknown>; // Data to pass to the component.
 
     /**
-     * Component being initialized.
+     * @inheritdoc
      */
     ngOnInit(): void {
         if (!this.module) {
@@ -142,6 +142,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
 
         // Get the data for the context menu.
         this.description = this.module.description;
+        // eslint-disable-next-line deprecation/deprecation
         this.externalUrl = this.module.url;
     }
 
@@ -149,7 +150,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
      * Refresh the data.
      *
      * @param refresher Refresher.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async doRefresh(refresher?: IonRefresher | null): Promise<void> {
         try {
@@ -180,7 +181,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
     /**
      * Expand the description.
      *
-     * @deprecated since 4.0
+     * @deprecated since 4.0.
      */
     expandDescription(): void {
         this.openModuleSummary();
@@ -222,7 +223,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
     /**
      * Prefetch the module.
      *
-     * @deprecated since 4.0
+     * @deprecated since 4.0.
      */
     async prefetch(): Promise<void> {
         try {
@@ -242,7 +243,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
     /**
      * Confirm and remove downloaded files.
      *
-     * @deprecated since 4.0
+     * @deprecated since 4.0.
      */
     async removeFiles(): Promise<void> {
         let modal: CoreIonLoadingElement | undefined;
@@ -274,7 +275,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
      *
      * @param name Name of the function to call.
      * @param params List of params to send to the function.
-     * @return Result of the call. Undefined if no component instance or the function doesn't exist.
+     * @returns Result of the call. Undefined if no component instance or the function doesn't exist.
      */
     callComponentFunction(name: string, params?: unknown[]): unknown | undefined {
         return this.content?.callComponentFunction(name, params);

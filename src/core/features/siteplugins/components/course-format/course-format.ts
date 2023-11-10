@@ -37,7 +37,11 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
     @Input() initialSectionId?: number; // The section to load first (by ID).
     @Input() initialSectionNumber?: number; // The section to load first (by number).
     @Input() moduleId?: number; // The module ID to scroll to. Must be inside the initial selected section.
-    // Notify when any module completion changes. @deprecated since 4.0, now we use CoreEvents.
+    /**
+     * Notify when any module completion changes.
+     *
+     * @deprecated since 4.0. Use CoreEvents instead.
+     */
     @Output() completionChanged = new EventEmitter<CoreCourseModuleCompletionData>();
 
     // Special input, allows access to the parent instance properties and methods.
@@ -54,7 +58,7 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
     data?: Record<string, unknown>;
 
     /**
-     * Detect changes on input properties.
+     * @inheritdoc
      */
     ngOnChanges(): void {
         if (!this.course || !this.course.format) {
@@ -83,6 +87,7 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
             initialSectionId: this.initialSectionId,
             initialSectionNumber: this.initialSectionNumber,
             moduleId: this.moduleId,
+            // eslint-disable-next-line deprecation/deprecation
             completionChanged: this.completionChanged,
             coreCourseFormatComponent: this.coreCourseFormatComponent,
         };
@@ -94,7 +99,7 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
      * @param refresher Refresher.
      * @param done Function to call when done.
      * @param afterCompletionChange Whether the refresh is due to a completion change.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async doRefresh(refresher?: IonRefresher, done?: () => void, afterCompletionChange?: boolean): Promise<void> {
         await this.content?.refreshContent(afterCompletionChange);

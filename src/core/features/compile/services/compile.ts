@@ -26,7 +26,6 @@ import {
 } from '@angular/core';
 import { JitCompilerFactory } from '@angular/platform-browser-dynamic';
 import {
-    Platform,
     ActionSheetController,
     AlertController,
     LoadingController,
@@ -48,7 +47,8 @@ import { CORE_CONTENTLINKS_SERVICES } from '@features/contentlinks/contentlinks.
 import { CORE_COURSE_SERVICES } from '@features/course/course.module';
 import { CORE_COURSES_SERVICES } from '@features/courses/courses.module';
 import { CORE_EDITOR_SERVICES } from '@features/editor/editor.module';
-import { IONIC_NATIVE_SERVICES } from '@features/emulator/emulator.module';
+import { CORE_ENROL_SERVICES } from '@features/enrol/enrol.module';
+import { CORE_NATIVE_SERVICES } from '@features/native/native.module';
 import { CORE_FILEUPLOADER_SERVICES } from '@features/fileuploader/fileuploader.module';
 import { CORE_FILTER_SERVICES } from '@features/filter/filter.module';
 import { CORE_GRADES_SERVICES } from '@features/grades/grades.module';
@@ -73,16 +73,18 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { CoreConstants } from '@/core/constants';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import { Md5 } from 'ts-md5/dist/md5';
 
 // Import core classes that can be useful for site plugins.
 import { CoreSyncBaseProvider } from '@classes/base-sync';
 import { CoreArray } from '@singletons/array';
 import { CoreComponentsRegistry } from '@singletons/components-registry';
+import { CoreDirectivesRegistry } from '@singletons/directives-registry';
 import { CoreDom } from '@singletons/dom';
 import { CoreForms } from '@singletons/form';
 import { CoreText } from '@singletons/text';
+import { CoreTime } from '@singletons/time';
 import { CoreUrl } from '@singletons/url';
 import { CoreWindow } from '@singletons/window';
 import { CoreCache } from '@classes/cache';
@@ -94,6 +96,7 @@ import { CoreCourseActivityPrefetchHandlerBase } from '@features/course/classes/
 import { CoreCourseResourcePrefetchHandlerBase } from '@features/course/classes/resource-prefetch-handler';
 import { CoreGeolocationError, CoreGeolocationErrorReason } from '@services/geolocation';
 import { CORE_ERRORS_CLASSES } from '@classes/errors/errors';
+import { CoreNetwork } from '@services/network';
 
 // Import all core modules that define components, directives and pipes.
 import { CoreSharedModule } from '@/core/shared.module';
@@ -146,14 +149,16 @@ import { ADDON_MOD_SCORM_SERVICES } from '@addons/mod/scorm/scorm.module';
 import { ADDON_MOD_SURVEY_SERVICES } from '@addons/mod/survey/survey.module';
 import { ADDON_MOD_URL_SERVICES } from '@addons/mod/url/url.module';
 import { ADDON_MOD_WIKI_SERVICES } from '@addons/mod/wiki/wiki.module';
-import { ADDON_MOD_WORKSHOP_SERVICES } from '@addons/mod/workshop/workshop.module';
+import { getWorkshopComponentModules, getWorkshopServices } from '@addons/mod/workshop/workshop.module';
 import { ADDON_NOTES_SERVICES } from '@addons/notes/notes.module';
 import { ADDON_NOTIFICATIONS_SERVICES } from '@addons/notifications/notifications.module';
 import { ADDON_PRIVATEFILES_SERVICES } from '@addons/privatefiles/privatefiles.module';
 
 // Import some addon modules that define components, directives and pipes. Only import the important ones.
 import { AddonModAssignComponentsModule } from '@addons/mod/assign/components/components.module';
-import { AddonModWorkshopComponentsModule } from '@addons/mod/workshop/components/components.module';
+import { CorePromisedValue } from '@classes/promised-value';
+import { CorePlatform } from '@services/platform';
+import { CoreAutoLogoutService } from '@features/autologout/services/autologout';
 
 /**
  * Service to provide functionalities regarding compiling dynamic HTML and Javascript.
@@ -166,7 +171,7 @@ export class CoreCompileProvider {
 
     // Other Ionic/Angular providers that don't depend on where they are injected.
     protected readonly OTHER_SERVICES: unknown[] = [
-        TranslateService, HttpClient, Platform, DomSanitizer, ActionSheetController, AlertController, LoadingController,
+        TranslateService, HttpClient, DomSanitizer, ActionSheetController, AlertController, LoadingController,
         ModalController, PopoverController, ToastController, FormBuilder,
     ];
 
@@ -175,7 +180,10 @@ export class CoreCompileProvider {
         CoreSharedModule, CoreCourseComponentsModule, CoreCoursesComponentsModule, CoreUserComponentsModule,
         CoreCourseDirectivesModule, CoreQuestionComponentsModule, AddonModAssignComponentsModule,
         CoreBlockComponentsModule, CoreEditorComponentsModule, CoreSearchComponentsModule, CoreSitePluginsDirectivesModule,
-        AddonModWorkshopComponentsModule,
+    ];
+
+    protected readonly LAZY_IMPORTS = [
+        getWorkshopComponentModules,
     ];
 
     constructor(protected injector: Injector, compilerFactory: JitCompilerFactory) {
@@ -190,7 +198,7 @@ export class CoreCompileProvider {
      * @param template The template of the component.
      * @param componentClass The JS class of the component.
      * @param extraImports Extra imported modules if needed and not imported by this class.
-     * @return Promise resolved with the factory to instantiate the component.
+     * @returns Promise resolved with the factory to instantiate the component.
      */
     async createAndCompileComponent<T = unknown>(
         template: string,
@@ -200,7 +208,9 @@ export class CoreCompileProvider {
         // Create the component using the template and the class.
         const component = Component({ template })(componentClass);
 
+        const lazyImports = await Promise.all(this.LAZY_IMPORTS.map(getModules => getModules()));
         const imports = [
+            ...CoreArray.flatten(lazyImports),
             ...this.IMPORTS,
             ...extraImports,
         ];
@@ -227,7 +237,7 @@ export class CoreCompileProvider {
      * Eval some javascript using the context of the function.
      *
      * @param javascript The javascript to eval.
-     * @return Result of the eval.
+     * @returns Result of the eval.
      */
     protected evalInContext(javascript: string): unknown {
         // eslint-disable-next-line no-eval
@@ -239,7 +249,7 @@ export class CoreCompileProvider {
      *
      * @param instance Instance to use as the context. In the JS code, "this" will be this instance.
      * @param javascript The javascript code to eval.
-     * @return Result of the javascript execution.
+     * @returns Result of the javascript execution.
      */
     executeJavascript(instance: unknown, javascript: string): unknown {
         try {
@@ -259,12 +269,14 @@ export class CoreCompileProvider {
     injectLibraries(instance: any, extraProviders: Type<unknown>[] = []): void {
         const providers = [
             ...CORE_SERVICES,
+            CoreAutoLogoutService,
             ...CORE_BLOCK_SERVICES,
             ...CORE_COMMENTS_SERVICES,
             ...CORE_CONTENTLINKS_SERVICES,
             ...CORE_COURSE_SERVICES,
             ...CORE_COURSES_SERVICES,
             ...CORE_EDITOR_SERVICES,
+            ...CORE_ENROL_SERVICES,
             ...CORE_FILEUPLOADER_SERVICES,
             ...CORE_FILTER_SERVICES,
             ...CORE_GRADES_SERVICES,
@@ -283,7 +295,7 @@ export class CoreCompileProvider {
             ...CORE_STYLE_SERVICES,
             ...CORE_USER_SERVICES,
             ...CORE_XAPI_SERVICES,
-            ...IONIC_NATIVE_SERVICES,
+            ...CORE_NATIVE_SERVICES,
             ...this.OTHER_SERVICES,
             ...extraProviders,
             ...ADDON_BADGES_SERVICES,
@@ -311,7 +323,6 @@ export class CoreCompileProvider {
             ...ADDON_MOD_SURVEY_SERVICES,
             ...ADDON_MOD_URL_SERVICES,
             ...ADDON_MOD_WIKI_SERVICES,
-            ...ADDON_MOD_WORKSHOP_SERVICES,
             ...ADDON_NOTES_SERVICES,
             ...ADDON_NOTIFICATIONS_SERVICES,
             ...ADDON_PRIVATEFILES_SERVICES,
@@ -342,16 +353,24 @@ export class CoreCompileProvider {
         instance['CoreLoggerProvider'] = CoreLogger;
         instance['moment'] = moment;
         instance['Md5'] = Md5;
+        instance['Network'] = CoreNetwork.instance; // @deprecated since 4.1, plugins should use CoreNetwork instead.
+        instance['Platform'] = CorePlatform.instance; // @deprecated since 4.1, plugins should use CorePlatform instead.
         instance['CoreSyncBaseProvider'] = CoreSyncBaseProvider;
         instance['CoreArray'] = CoreArray;
+        // eslint-disable-next-line deprecation/deprecation
         instance['CoreComponentsRegistry'] = CoreComponentsRegistry;
+        instance['CoreDirectivesRegistry'] = CoreDirectivesRegistry;
+        instance['CoreNetwork'] = CoreNetwork.instance;
+        instance['CorePlatform'] = CorePlatform.instance;
         instance['CoreDom'] = CoreDom;
         instance['CoreForms'] = CoreForms;
         instance['CoreText'] = CoreText;
+        instance['CoreTime'] = CoreTime;
         instance['CoreUrl'] = CoreUrl;
         instance['CoreWindow'] = CoreWindow;
         instance['CoreCache'] = CoreCache;
         instance['CoreDelegate'] = CoreDelegate;
+        instance['CorePromisedValue'] = CorePromisedValue;
         instance['CoreContentLinksHandlerBase'] = CoreContentLinksHandlerBase;
         instance['CoreContentLinksModuleGradeHandler'] = CoreContentLinksModuleGradeHandler;
         instance['CoreContentLinksModuleIndexHandler'] = CoreContentLinksModuleIndexHandler;
@@ -376,12 +395,25 @@ export class CoreCompileProvider {
     }
 
     /**
+     * Get lazy libraries to inject.
+     *
+     * @returns Lazy libraries.
+     */
+    async getLazyLibraries(): Promise<Type<unknown>[]> {
+        const ADDON_MOD_WORKSHOP_SERVICES = await getWorkshopServices();
+
+        return [
+            ...ADDON_MOD_WORKSHOP_SERVICES,
+        ];
+    }
+
+    /**
      * Instantiate a dynamic component.
      *
      * @param template The template of the component.
      * @param componentClass The JS class of the component.
      * @param injector The injector to use. It's recommended to pass it so NavController and similar can be injected.
-     * @return Promise resolved with the component instance.
+     * @returns Promise resolved with the component instance.
      */
     async instantiateDynamicComponent<T = unknown>(
         template: string,

@@ -20,15 +20,18 @@ import { CoreCourseAnyModuleData } from '@features/course/services/course';
 import { CoreCourses } from '@features/courses/services/courses';
 import { CoreApp } from '@services/app';
 import { CoreFilepool } from '@services/filepool';
-import { CoreLang } from '@services/lang';
+import { CoreLang, CoreLangFormat } from '@services/lang';
 import { CoreSites } from '@services/sites';
 import { CoreTextUtils } from '@services/utils/text';
-import { CoreUtils, PromiseDefer } from '@services/utils/utils';
+import { CoreUtils } from '@services/utils/utils';
 import { CoreWSExternalFile, CoreWSExternalWarning } from '@services/ws';
 import { makeSingleton } from '@singletons';
 import { CoreEvents } from '@singletons/events';
 import { CoreLogger } from '@singletons/logger';
 import { CoreSitePluginsModuleHandler } from '../classes/handlers/module-handler';
+import { CorePromisedValue } from '@classes/promised-value';
+import { CorePlatform } from '@services/platform';
+import { CoreEnrolAction, CoreEnrolInfoIcon } from '@features/enrol/services/enrol-delegate';
 
 const ROOT_CACHE_KEY = 'CoreSitePlugins:';
 
@@ -44,7 +47,7 @@ export class CoreSitePluginsProvider {
     protected logger: CoreLogger;
     protected sitePlugins: {[name: string]: CoreSitePluginsHandler} = {}; // Site plugins registered.
     protected sitePluginPromises: {[name: string]: Promise<void>} = {}; // Promises of loading plugins.
-    protected fetchPluginsDeferred: PromiseDefer<void>;
+    protected fetchPluginsDeferred: CorePromisedValue<void>;
     protected moduleHandlerInstances: Record<string, CoreSitePluginsModuleHandler> = {};
 
     hasSitePluginsLoaded = false;
@@ -59,9 +62,9 @@ export class CoreSitePluginsProvider {
         });
 
         // Initialize deferred at start and on logout.
-        this.fetchPluginsDeferred = CoreUtils.promiseDefer();
+        this.fetchPluginsDeferred = new CorePromisedValue();
         CoreEvents.on(CoreEvents.LOGOUT, () => {
-            this.fetchPluginsDeferred = CoreUtils.promiseDefer();
+            this.fetchPluginsDeferred = new CorePromisedValue();
         });
     }
 
@@ -70,7 +73,7 @@ export class CoreSitePluginsProvider {
      *
      * @param args Original params.
      * @param site Site. If not defined, current site.
-     * @return Promise resolved with the new params.
+     * @returns Promise resolved with the new params.
      */
     protected async addDefaultArgs<T extends Record<string, unknown> = Record<string, unknown>>(
         args: T,
@@ -79,7 +82,7 @@ export class CoreSitePluginsProvider {
         args = args || {};
         site = site || CoreSites.getCurrentSite();
 
-        const lang = await CoreLang.getCurrentLanguage();
+        const lang = await CoreLang.getCurrentLanguage(CoreLangFormat.LMS);
 
         const defaultArgs: CoreSitePluginsDefaultArgs = {
             userid: <number> args.userid ?? site?.getUserId(),
@@ -89,13 +92,13 @@ export class CoreSitePluginsProvider {
             applang: lang,
             appcustomurlscheme: CoreConstants.CONFIG.customurlscheme,
             appisdesktop: false,
-            appismobile: CoreApp.isMobile(),
+            appismobile: CorePlatform.isMobile(),
             appiswide: CoreApp.isWide(),
             appplatform: 'browser',
         };
 
         if (args.appismobile) {
-            defaultArgs.appplatform = CoreApp.isIOS() ? 'ios' : 'android';
+            defaultArgs.appplatform = CorePlatform.isIOS() ? 'ios' : 'android';
         }
 
         return {
@@ -111,7 +114,7 @@ export class CoreSitePluginsProvider {
      * @param data Data to send to the WS.
      * @param preSets Extra options.
      * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the response.
+     * @returns Promise resolved with the response.
      */
     async callWS<T = unknown>(
         method: string,
@@ -133,7 +136,7 @@ export class CoreSitePluginsProvider {
      *
      * @param initResult Result of the init WS call.
      * @param contentResult Result of the content WS call (if any).
-     * @return An object with the data to pass to the JS.
+     * @returns An object with the data to pass to the JS.
      */
     createDataForJS(
         initResult?: CoreSitePluginsContent | null,
@@ -164,7 +167,7 @@ export class CoreSitePluginsProvider {
      *
      * @param method Name of the method.
      * @param data Data to identify the WS call.
-     * @return Cache key.
+     * @returns Cache key.
      */
     getCallWSCacheKey(method: string, data: Record<string, unknown>): string {
         return this.getCallWSCommonCacheKey(method) + ':' + CoreUtils.sortAndStringify(data);
@@ -174,7 +177,7 @@ export class CoreSitePluginsProvider {
      * Get common cache key for a WS call.
      *
      * @param method Name of the method.
-     * @return Cache key.
+     * @returns Cache key.
      */
     protected getCallWSCommonCacheKey(method: string): string {
         return ROOT_CACHE_KEY + 'ws:' + method;
@@ -188,7 +191,7 @@ export class CoreSitePluginsProvider {
      * @param args The params for the method.
      * @param preSets Extra options.
      * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the result.
+     * @returns Promise resolved with the result.
      */
     async getContent(
         component: string,
@@ -241,7 +244,7 @@ export class CoreSitePluginsProvider {
      * @param component Component where the class is. E.g. mod_assign.
      * @param method Method to execute in the class.
      * @param args The params for the method.
-     * @return Cache key.
+     * @returns Cache key.
      */
     protected getContentCacheKey(component: string, method: string, args: Record<string, unknown>): string {
         return ROOT_CACHE_KEY + 'content:' + component + ':' + method + ':' + CoreUtils.sortAndStringify(args);
@@ -254,7 +257,7 @@ export class CoreSitePluginsProvider {
      * @param paramName Name of the param as defined by the handler.
      * @param courseId Course ID (if prefetching a course).
      * @param module The module object returned by WS (if prefetching a module).
-     * @return The value.
+     * @returns The value.
      */
     protected getDownloadParam(
         component: string,
@@ -281,7 +284,7 @@ export class CoreSitePluginsProvider {
      *
      * @param plugin Data of the plugin.
      * @param handlerName Name of the handler inside the plugin.
-     * @return Unique name.
+     * @returns Unique name.
      */
     getHandlerUniqueName(plugin: CoreSitePluginsPlugin, handlerName: string): string {
         return plugin.addon + '_' + handlerName;
@@ -291,7 +294,7 @@ export class CoreSitePluginsProvider {
      * Get site plugins for site.
      *
      * @param siteId Site ID.
-     * @return Promise resolved with the plugins.
+     * @returns Promise resolved with the plugins.
      */
     async getPlugins(siteId?: string): Promise<CoreSitePluginsPlugin[]> {
         const site = await CoreSites.getSite(siteId);
@@ -300,7 +303,10 @@ export class CoreSitePluginsProvider {
         const data = await site.read<CoreSitePluginsGetPluginsSupportingMobileWSResponse>(
             'tool_mobile_get_plugins_supporting_mobile',
             {},
-            { getFromCache: false },
+            {
+                getFromCache: false,
+                cacheKey: this.getPluginsCacheKey(),
+            },
         );
 
         // Return enabled plugins.
@@ -308,10 +314,19 @@ export class CoreSitePluginsProvider {
     }
 
     /**
+     * Get cache key for get plugins WS call.
+     *
+     * @returns Cache key.
+     */
+    protected getPluginsCacheKey(): string {
+        return ROOT_CACHE_KEY + 'plugins';
+    }
+
+    /**
      * Get a site plugin handler.
      *
      * @param name Unique name of the handler.
-     * @return Handler.
+     * @returns Handler.
      */
     getSitePluginHandler(name: string): CoreSitePluginsHandler | undefined {
         return this.sitePlugins[name];
@@ -320,7 +335,7 @@ export class CoreSitePluginsProvider {
     /**
      * Get the current site plugin list.
      *
-     * @return Plugin list ws info.
+     * @returns Plugin list ws info.
      */
     getCurrentSitePluginList(): CoreSitePluginsWSPlugin[] {
         return CoreUtils.objectToArray(this.sitePlugins).map((plugin) => plugin.plugin);
@@ -331,7 +346,7 @@ export class CoreSitePluginsProvider {
      *
      * @param method WS method to use.
      * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @returns Promise resolved when the data is invalidated.
      */
     async invalidateAllCallWSForMethod(method: string, siteId?: string): Promise<void> {
         const site = await CoreSites.getSite(siteId);
@@ -346,7 +361,7 @@ export class CoreSitePluginsProvider {
      * @param data Data to send to the WS.
      * @param preSets Extra options.
      * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @returns Promise resolved when the data is invalidated.
      */
     async invalidateCallWS(
         method: string,
@@ -365,10 +380,10 @@ export class CoreSitePluginsProvider {
      * Invalidate a page content.
      *
      * @param component Component where the class is. E.g. mod_assign.
-     * @param method Method to execute in the class.
+     * @param callback Method to execute in the class.
      * @param args The params for the method.
      * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @returns Promise resolved when the data is invalidated.
      */
     async invalidateContent(component: string, callback: string, args?: Record<string, unknown>, siteId?: string): Promise<void> {
         const site = await CoreSites.getSite(siteId);
@@ -379,7 +394,8 @@ export class CoreSitePluginsProvider {
     /**
      * Check if the get content WS is available.
      *
-     * @deprecated since app 4.0
+     * @returns If get content WS is available.
+     * @deprecated since 4.0
      */
     isGetContentAvailable(): boolean {
         return true;
@@ -391,7 +407,7 @@ export class CoreSitePluginsProvider {
      * @param courseId Course ID to check.
      * @param restrictEnrolled If true or undefined, handler is only enabled for courses the user is enrolled in.
      * @param restrict Users and courses the handler is restricted to.
-     * @return Whether the handler is enabled.
+     * @returns Whether the handler is enabled.
      */
     async isHandlerEnabledForCourse(
         courseId: number,
@@ -421,7 +437,7 @@ export class CoreSitePluginsProvider {
      * @param userId User ID to check.
      * @param restrictCurrent Whether handler is only enabled for current user.
      * @param restrict Users and courses the handler is restricted to.
-     * @return Whether the handler is enabled.
+     * @returns Whether the handler is enabled.
      */
     isHandlerEnabledForUser(userId: number, restrictCurrent?: boolean, restrict?: CoreSitePluginsContentRestrict): boolean {
         if (restrictCurrent && userId != CoreSites.getCurrentSite()?.getUserId()) {
@@ -442,7 +458,7 @@ export class CoreSitePluginsProvider {
      *
      * @param plugin Data of the plugin.
      * @param site Site affected.
-     * @return Whether it's a site plugin and it's enabled.
+     * @returns Whether it's a site plugin and it's enabled.
      */
     isSitePluginEnabled(plugin: CoreSitePluginsPlugin, site: CoreSite): boolean {
         if (site.isFeatureDisabled('sitePlugin_' + plugin.component + '_' + plugin.addon) || !plugin.handlers) {
@@ -454,7 +470,7 @@ export class CoreSitePluginsProvider {
             plugin.parsedHandlers = CoreTextUtils.parseJSON(
                 plugin.handlers,
                 null,
-                this.logger.error.bind(this.logger, 'Error parsing site plugin handlers'),
+                error => this.logger.error('Error parsing site plugin handlers', error),
             );
         }
 
@@ -470,7 +486,7 @@ export class CoreSitePluginsProvider {
      * @param args The current args.
      * @param otherData All the other data.
      * @param useOtherData Names of the attributes to include.
-     * @return New args.
+     * @returns New args.
      */
     loadOtherDataInArgs(
         args: Record<string, unknown> | undefined,
@@ -526,7 +542,7 @@ export class CoreSitePluginsProvider {
      * @param prefetch True to prefetch, false to download right away.
      * @param dirPath Path of the directory where to store all the content files.
      * @param site Site. If not defined, current site.
-     * @return Promise resolved when done.
+     * @returns Promise resolved when done.
      */
     async prefetchFunctions(
         component: string,
@@ -615,8 +631,8 @@ export class CoreSitePluginsProvider {
     /**
      * Store the promise for a plugin that is being initialised.
      *
-     * @param component
-     * @param promise
+     * @param component Component name.
+     * @param promise Promise to register.
      */
     registerSitePluginPromise(component: string, promise: Promise<void>): void {
         this.sitePluginPromises[component] = promise;
@@ -639,7 +655,8 @@ export class CoreSitePluginsProvider {
     /**
      * Is a plugin being initialised for the specified component?
      *
-     * @param component
+     * @param component Component name.
+     * @returns If site plugin promise has been set.
      */
     sitePluginPromiseExists(component: string): boolean {
         return !!this.sitePluginPromises[component];
@@ -648,7 +665,8 @@ export class CoreSitePluginsProvider {
     /**
      * Get the promise for a plugin that is being initialised.
      *
-     * @param component
+     * @param component Component name.
+     * @returns Plugin loaded promise.
      */
     sitePluginLoaded(component: string): Promise<void> | undefined {
         return this.sitePluginPromises[component];
@@ -657,17 +675,17 @@ export class CoreSitePluginsProvider {
     /**
      * Wait for fetch plugins to be done.
      *
-     * @return Promise resolved when site plugins have been fetched.
+     * @returns Promise resolved when site plugins have been fetched.
      */
-    waitFetchPlugins(): Promise<void> {
-        return this.fetchPluginsDeferred.promise;
+    async waitFetchPlugins(): Promise<void> {
+        await this.fetchPluginsDeferred;
     }
 
     /**
      * Get a module hander instance, if present.
      *
      * @param modName Mod name without "mod_".
-     * @return Handler instance, undefined if not found.
+     * @returns Handler instance, undefined if not found.
      */
     getModuleHandlerInstance(modName: string): CoreSitePluginsModuleHandler | undefined {
         return this.moduleHandlerInstances[modName];
@@ -808,7 +826,7 @@ export type CoreSitePluginsPlugin = CoreSitePluginsWSPlugin & {
 export type CoreSitePluginsHandlerData = CoreSitePluginsInitHandlerData | CoreSitePluginsCourseOptionHandlerData |
 CoreSitePluginsMainMenuHandlerData | CoreSitePluginsCourseModuleHandlerData | CoreSitePluginsCourseFormatHandlerData |
 CoreSitePluginsUserHandlerData | CoreSitePluginsSettingsHandlerData | CoreSitePluginsMessageOutputHandlerData |
-CoreSitePluginsBlockHandlerData | CoreSitePluginsMainMenuHomeHandlerData;
+CoreSitePluginsBlockHandlerData | CoreSitePluginsMainMenuHomeHandlerData | CoreSitePluginsEnrolHandlerData;
 
 /**
  * Plugin handler data common to all delegates.
@@ -877,6 +895,7 @@ export type CoreSitePluginsCourseModuleHandlerData = CoreSitePluginsHandlerCommo
     supportedfeatures?: Record<string, unknown>;
     manualcompletionalwaysshown?: boolean;
     nolinkhandlers?: boolean;
+    hascustomcmlistitem?: boolean;
 };
 
 /**
@@ -886,7 +905,7 @@ export type CoreSitePluginsCourseFormatHandlerData = CoreSitePluginsHandlerCommo
     canviewallsections?: boolean;
     displayenabledownload?: boolean;
     /**
-     * @deprecated on 4.0, use displaycourseindex instead.
+     * @deprecated since 4.0. Use displaycourseindex instead.
      */
     displaysectionselector?: boolean;
     displaycourseindex?: boolean;
@@ -941,6 +960,14 @@ export type CoreSitePluginsBlockHandlerData = CoreSitePluginsHandlerCommonData &
         type?: string;
     };
     fallback?: string;
+};
+
+/**
+ * Enrol handler specific data.
+ */
+export type CoreSitePluginsEnrolHandlerData = CoreSitePluginsHandlerCommonData & {
+    enrolmentAction?: CoreEnrolAction;
+    infoIcons?: CoreEnrolInfoIcon[];
 };
 
 /**

@@ -39,16 +39,12 @@ export class CoreRedirectGuard implements CanLoad, CanActivate {
 
     /**
      * Check if there is a pending redirect and trigger it.
+     *
+     * @returns Promise resolved with true if it's not redirected or the redirection route.
      */
     private async guard(): Promise<true | UrlTree> {
         const redirect = CoreApp.consumeMemoryRedirect();
-
         if (!redirect) {
-            return true;
-        }
-
-        // Only accept the redirect if it was stored less than 20 seconds ago.
-        if (!redirect.timemodified || Date.now() - redirect.timemodified > 20000) {
             return true;
         }
 
