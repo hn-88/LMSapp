@@ -1,0 +1,41 @@
+
+name: buildDebug
+
+on: workflow_dispatch
+
+jobs:
+
+  debugbuild:
+    name: debug build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '14'
+    - name: Install npm packages
+      run: |
+        npm install 
+    - name: Production builds
+      run: |
+        npm run build:prod
+        echo "Completed npm run build:prod."
+        echo "Installing cordova etc..."
+        #sudo npm install -g cordova
+        npm install -g cordova-res
+        #npm install 
+        #npx ionic cordova platform add android@11.0.0
+        npx ionic cordova platform add android
+        cordova-res android --skip-config --copy
+        cp -Rvf android platforms/android 
+        npx cordova platform remove ios
+        npx cordova prepare
+        npx gulp
+        npx ionic cordova build android --prod
+        #cordova build android
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: artifact-of-build
+        path: platforms/android/app/build/outputs/
