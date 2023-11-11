@@ -17,12 +17,12 @@ jobs:
     - name: Install npm packages
       run: |
         npm install 
+        npm ci --no-audit --prefix cordova-plugin-moodleapp
     - name: Production builds
       run: |
         npm run build:prod
         echo "Completed npm run build:prod."
-        echo "Installing cordova etc..."
-        #sudo npm install -g cordova
+        npm run prod --prefix cordova-plugin-moodleapp
         npm install -g cordova-res
         #npm install 
         #npx ionic cordova platform add android@11.0.0
