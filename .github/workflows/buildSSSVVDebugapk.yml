@@ -18,10 +18,16 @@ jobs:
       run: |
         npm install 
         npm ci --no-audit --prefix cordova-plugin-moodleapp
-    - name: Production builds
+    - name: npm run build prod
       run: |
         npm run build:prod
         echo "Completed npm run build:prod."
+    - name: give run permissions
+      run: |
+        chmod -R +x ./*
+        echo "chmod +x for all."
+    - name: npm run prod --prefix cordova-plugin-moodleapp
+      run: |       
         npm run prod --prefix cordova-plugin-moodleapp
         npm install -g cordova-res
         #npm install 
